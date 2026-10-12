@@ -1,0 +1,1279 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Trip Map"><meta name="robots" content="noindex"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="apple-touch-icon.png"><link rel="icon" href="icon-192.png"><style>body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style></head><body><title>Trip Planning Map</title>
+<style>
+/* Layout: one full-screen map; floating controls top-right; details slide up from the bottom edge. */
+:root {
+  --bg: #e9ede6;            /* map ground when no street map is shown */
+  --panel: #fbfcf9;
+  --panel-2: #eef2ea;
+  --fg: #1c2420;
+  --muted: #5d6a62;
+  --line: #cfd7cc;
+  --accent: #b3009e;        /* route magenta, used for the primary action */
+  --accent-fg: #ffffff;
+  --found: #e8747c;
+  --found-fill: rgba(236, 120, 128, 0.46);
+  --notfound: #6fae3f;
+  --notfound-fill: rgba(150, 210, 105, 0.46);
+  --county-line: #7d867f;
+  --county-edit: #2a2f2c;
+  --label: #3a443e;
+  --label-halo: rgba(251, 252, 249, 0.85);
+  --cache: #1f5fd0;
+  --special: #8f1d1d;
+  --lab: #d98200;
+  --shadow: 0 2px 10px rgba(20, 30, 24, 0.22);
+  --ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #171c19; --panel: #222925; --panel-2: #2b332e; --fg: #e8eee9; --muted: #9eaaa2; --line: #3a443e;
+    --accent: #e052d0; --accent-fg: #1a0f19;
+    --found: #f08a90; --found-fill: rgba(236, 120, 128, 0.42); --notfound: #8fcf5c; --notfound-fill: rgba(140, 205, 95, 0.36);
+    --county-line: #66706a; --county-edit: #f2f5f2; --label: #c9d3cc; --label-halo: rgba(23, 28, 25, 0.85);
+    --cache: #6fa0ff; --special: #ff7a6b; --lab: #ffb23d; --shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #171c19; --panel: #222925; --panel-2: #2b332e; --fg: #e8eee9; --muted: #9eaaa2; --line: #3a443e;
+  --accent: #e052d0; --accent-fg: #1a0f19;
+  --found: #f08a90; --found-fill: rgba(236, 120, 128, 0.42); --notfound: #8fcf5c; --notfound-fill: rgba(140, 205, 95, 0.36);
+  --county-line: #66706a; --county-edit: #f2f5f2; --label: #c9d3cc; --label-halo: rgba(23, 28, 25, 0.85);
+  --cache: #6fa0ff; --special: #ff7a6b; --lab: #ffb23d; --shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--fg); font-family: var(--ui); font-size: 15px; overflow: hidden; -webkit-text-size-adjust: 100%; }
+#app { position: relative; height: 100%; overflow: hidden; }
+#map { position: absolute; inset: 0; background: var(--bg); z-index: 0; }
+button { font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+
+
+.leaflet-pane,
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-tile-container,
+.leaflet-pane > svg,
+.leaflet-pane > canvas,
+.leaflet-zoom-box,
+.leaflet-image-layer,
+.leaflet-layer {
+	position: absolute;
+	left: 0;
+	top: 0;
+	}
+.leaflet-container {
+	overflow: hidden;
+	}
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow {
+	-webkit-user-select: none;
+	   -moz-user-select: none;
+	        user-select: none;
+	  -webkit-user-drag: none;
+	}
+
+.leaflet-tile::selection {
+	background: transparent;
+}
+
+.leaflet-safari .leaflet-tile {
+	image-rendering: -webkit-optimize-contrast;
+	}
+
+.leaflet-safari .leaflet-tile-container {
+	width: 1600px;
+	height: 1600px;
+	-webkit-transform-origin: 0 0;
+	}
+.leaflet-marker-icon,
+.leaflet-marker-shadow {
+	display: block;
+	}
+
+
+.leaflet-container .leaflet-overlay-pane svg {
+	max-width: none !important;
+	max-height: none !important;
+	}
+.leaflet-container .leaflet-marker-pane img,
+.leaflet-container .leaflet-shadow-pane img,
+.leaflet-container .leaflet-tile-pane img,
+.leaflet-container img.leaflet-image-layer,
+.leaflet-container .leaflet-tile {
+	max-width: none !important;
+	max-height: none !important;
+	width: auto;
+	padding: 0;
+	}
+
+.leaflet-container img.leaflet-tile {
+	
+	mix-blend-mode: plus-lighter;
+}
+
+.leaflet-container.leaflet-touch-zoom {
+	-ms-touch-action: pan-x pan-y;
+	touch-action: pan-x pan-y;
+	}
+.leaflet-container.leaflet-touch-drag {
+	-ms-touch-action: pinch-zoom;
+	
+	touch-action: none;
+	touch-action: pinch-zoom;
+}
+.leaflet-container.leaflet-touch-drag.leaflet-touch-zoom {
+	-ms-touch-action: none;
+	touch-action: none;
+}
+.leaflet-container {
+	-webkit-tap-highlight-color: transparent;
+}
+.leaflet-container a {
+	-webkit-tap-highlight-color: rgba(51, 181, 229, 0.4);
+}
+.leaflet-tile {
+	filter: inherit;
+	visibility: hidden;
+	}
+.leaflet-tile-loaded {
+	visibility: inherit;
+	}
+.leaflet-zoom-box {
+	width: 0;
+	height: 0;
+	-moz-box-sizing: border-box;
+	     box-sizing: border-box;
+	z-index: 800;
+	}
+
+.leaflet-overlay-pane svg {
+	-moz-user-select: none;
+	}
+
+.leaflet-pane         { z-index: 400; }
+
+.leaflet-tile-pane    { z-index: 200; }
+.leaflet-overlay-pane { z-index: 400; }
+.leaflet-shadow-pane  { z-index: 500; }
+.leaflet-marker-pane  { z-index: 600; }
+.leaflet-tooltip-pane   { z-index: 650; }
+.leaflet-popup-pane   { z-index: 700; }
+
+.leaflet-map-pane canvas { z-index: 100; }
+.leaflet-map-pane svg    { z-index: 200; }
+
+.leaflet-vml-shape {
+	width: 1px;
+	height: 1px;
+	}
+
+
+
+
+.leaflet-control {
+	position: relative;
+	z-index: 800;
+	pointer-events: visiblePainted; 
+	pointer-events: auto;
+	}
+.leaflet-top,
+.leaflet-bottom {
+	position: absolute;
+	z-index: 1000;
+	pointer-events: none;
+	}
+.leaflet-top {
+	top: 0;
+	}
+.leaflet-right {
+	right: 0;
+	}
+.leaflet-bottom {
+	bottom: 0;
+	}
+.leaflet-left {
+	left: 0;
+	}
+.leaflet-control {
+	float: left;
+	clear: both;
+	}
+.leaflet-right .leaflet-control {
+	float: right;
+	}
+.leaflet-top .leaflet-control {
+	margin-top: 10px;
+	}
+.leaflet-bottom .leaflet-control {
+	margin-bottom: 10px;
+	}
+.leaflet-left .leaflet-control {
+	margin-left: 10px;
+	}
+.leaflet-right .leaflet-control {
+	margin-right: 10px;
+	}
+
+
+
+
+.leaflet-fade-anim .leaflet-popup {
+	opacity: 0;
+	-webkit-transition: opacity 0.2s linear;
+	   -moz-transition: opacity 0.2s linear;
+	        transition: opacity 0.2s linear;
+	}
+.leaflet-fade-anim .leaflet-map-pane .leaflet-popup {
+	opacity: 1;
+	}
+.leaflet-zoom-animated {
+	-webkit-transform-origin: 0 0;
+	    -ms-transform-origin: 0 0;
+	        transform-origin: 0 0;
+	}
+svg.leaflet-zoom-animated {
+	will-change: transform;
+}
+
+.leaflet-zoom-anim .leaflet-zoom-animated {
+	-webkit-transition: -webkit-transform 0.25s cubic-bezier(0,0,0.25,1);
+	   -moz-transition:    -moz-transform 0.25s cubic-bezier(0,0,0.25,1);
+	        transition:         transform 0.25s cubic-bezier(0,0,0.25,1);
+	}
+.leaflet-zoom-anim .leaflet-tile,
+.leaflet-pan-anim .leaflet-tile {
+	-webkit-transition: none;
+	   -moz-transition: none;
+	        transition: none;
+	}
+
+.leaflet-zoom-anim .leaflet-zoom-hide {
+	visibility: hidden;
+	}
+
+
+
+
+.leaflet-interactive {
+	cursor: pointer;
+	}
+.leaflet-grab {
+	cursor: -webkit-grab;
+	cursor:    -moz-grab;
+	cursor:         grab;
+	}
+.leaflet-crosshair,
+.leaflet-crosshair .leaflet-interactive {
+	cursor: crosshair;
+	}
+.leaflet-popup-pane,
+.leaflet-control {
+	cursor: auto;
+	}
+.leaflet-dragging .leaflet-grab,
+.leaflet-dragging .leaflet-grab .leaflet-interactive,
+.leaflet-dragging .leaflet-marker-draggable {
+	cursor: move;
+	cursor: -webkit-grabbing;
+	cursor:    -moz-grabbing;
+	cursor:         grabbing;
+	}
+
+
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-image-layer,
+.leaflet-pane > svg path,
+.leaflet-tile-container {
+	pointer-events: none;
+	}
+
+.leaflet-marker-icon.leaflet-interactive,
+.leaflet-image-layer.leaflet-interactive,
+.leaflet-pane > svg path.leaflet-interactive,
+svg.leaflet-image-layer.leaflet-interactive path {
+	pointer-events: visiblePainted; 
+	pointer-events: auto;
+	}
+
+
+
+.leaflet-container {
+	background: #ddd;
+	outline-offset: 1px;
+	}
+.leaflet-container a {
+	color: #0078A8;
+	}
+.leaflet-zoom-box {
+	border: 2px dotted #38f;
+	background: rgba(255,255,255,0.5);
+	}
+
+
+
+.leaflet-container {
+	font-family: "Helvetica Neue", Arial, Helvetica, sans-serif;
+	font-size: 12px;
+	font-size: 0.75rem;
+	line-height: 1.5;
+	}
+
+
+
+
+.leaflet-bar {
+	box-shadow: 0 1px 5px rgba(0,0,0,0.65);
+	border-radius: 4px;
+	}
+.leaflet-bar a {
+	background-color: #fff;
+	border-bottom: 1px solid #ccc;
+	width: 26px;
+	height: 26px;
+	line-height: 26px;
+	display: block;
+	text-align: center;
+	text-decoration: none;
+	color: black;
+	}
+.leaflet-bar a,
+.leaflet-control-layers-toggle {
+	background-position: 50% 50%;
+	background-repeat: no-repeat;
+	display: block;
+	}
+.leaflet-bar a:hover,
+.leaflet-bar a:focus {
+	background-color: #f4f4f4;
+	}
+.leaflet-bar a:first-child {
+	border-top-left-radius: 4px;
+	border-top-right-radius: 4px;
+	}
+.leaflet-bar a:last-child {
+	border-bottom-left-radius: 4px;
+	border-bottom-right-radius: 4px;
+	border-bottom: none;
+	}
+.leaflet-bar a.leaflet-disabled {
+	cursor: default;
+	background-color: #f4f4f4;
+	color: #bbb;
+	}
+
+.leaflet-touch .leaflet-bar a {
+	width: 30px;
+	height: 30px;
+	line-height: 30px;
+	}
+.leaflet-touch .leaflet-bar a:first-child {
+	border-top-left-radius: 2px;
+	border-top-right-radius: 2px;
+	}
+.leaflet-touch .leaflet-bar a:last-child {
+	border-bottom-left-radius: 2px;
+	border-bottom-right-radius: 2px;
+	}
+
+
+
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out {
+	font: bold 18px 'Lucida Console', Monaco, monospace;
+	text-indent: 1px;
+	}
+
+.leaflet-touch .leaflet-control-zoom-in, .leaflet-touch .leaflet-control-zoom-out  {
+	font-size: 22px;
+	}
+
+
+
+
+.leaflet-control-layers {
+	box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+	background: #fff;
+	border-radius: 5px;
+	}
+.leaflet-touch .leaflet-control-layers-toggle {
+	width: 44px;
+	height: 44px;
+	}
+.leaflet-control-layers .leaflet-control-layers-list,
+.leaflet-control-layers-expanded .leaflet-control-layers-toggle {
+	display: none;
+	}
+.leaflet-control-layers-expanded .leaflet-control-layers-list {
+	display: block;
+	position: relative;
+	}
+.leaflet-control-layers-expanded {
+	padding: 6px 10px 6px 6px;
+	color: #333;
+	background: #fff;
+	}
+.leaflet-control-layers-scrollbar {
+	overflow-y: scroll;
+	overflow-x: hidden;
+	padding-right: 5px;
+	}
+.leaflet-control-layers-selector {
+	margin-top: 2px;
+	position: relative;
+	top: 1px;
+	}
+.leaflet-control-layers label {
+	display: block;
+	font-size: 13px;
+	font-size: 1.08333em;
+	}
+.leaflet-control-layers-separator {
+	height: 0;
+	border-top: 1px solid #ddd;
+	margin: 5px -10px 5px -6px;
+	}
+
+
+
+
+.leaflet-container .leaflet-control-attribution {
+	background: #fff;
+	background: rgba(255, 255, 255, 0.8);
+	margin: 0;
+	}
+.leaflet-control-attribution,
+.leaflet-control-scale-line {
+	padding: 0 5px;
+	color: #333;
+	line-height: 1.4;
+	}
+.leaflet-control-attribution a {
+	text-decoration: none;
+	}
+.leaflet-control-attribution a:hover,
+.leaflet-control-attribution a:focus {
+	text-decoration: underline;
+	}
+.leaflet-attribution-flag {
+	display: inline !important;
+	vertical-align: baseline !important;
+	width: 1em;
+	height: 0.6669em;
+	}
+.leaflet-left .leaflet-control-scale {
+	margin-left: 5px;
+	}
+.leaflet-bottom .leaflet-control-scale {
+	margin-bottom: 5px;
+	}
+.leaflet-control-scale-line {
+	border: 2px solid #777;
+	border-top: none;
+	line-height: 1.1;
+	padding: 2px 5px 1px;
+	white-space: nowrap;
+	-moz-box-sizing: border-box;
+	     box-sizing: border-box;
+	background: rgba(255, 255, 255, 0.8);
+	text-shadow: 1px 1px #fff;
+	}
+.leaflet-control-scale-line:not(:first-child) {
+	border-top: 2px solid #777;
+	border-bottom: none;
+	margin-top: -2px;
+	}
+.leaflet-control-scale-line:not(:first-child):not(:last-child) {
+	border-bottom: 2px solid #777;
+	}
+
+.leaflet-touch .leaflet-control-attribution,
+.leaflet-touch .leaflet-control-layers,
+.leaflet-touch .leaflet-bar {
+	box-shadow: none;
+	}
+.leaflet-touch .leaflet-control-layers,
+.leaflet-touch .leaflet-bar {
+	border: 2px solid rgba(0,0,0,0.2);
+	background-clip: padding-box;
+	}
+
+
+
+
+.leaflet-popup {
+	position: absolute;
+	text-align: center;
+	margin-bottom: 20px;
+	}
+.leaflet-popup-content-wrapper {
+	padding: 1px;
+	text-align: left;
+	border-radius: 12px;
+	}
+.leaflet-popup-content {
+	margin: 13px 24px 13px 20px;
+	line-height: 1.3;
+	font-size: 13px;
+	font-size: 1.08333em;
+	min-height: 1px;
+	}
+.leaflet-popup-content p {
+	margin: 17px 0;
+	margin: 1.3em 0;
+	}
+.leaflet-popup-tip-container {
+	width: 40px;
+	height: 20px;
+	position: absolute;
+	left: 50%;
+	margin-top: -1px;
+	margin-left: -20px;
+	overflow: hidden;
+	pointer-events: none;
+	}
+.leaflet-popup-tip {
+	width: 17px;
+	height: 17px;
+	padding: 1px;
+
+	margin: -10px auto 0;
+	pointer-events: auto;
+
+	-webkit-transform: rotate(45deg);
+	   -moz-transform: rotate(45deg);
+	    -ms-transform: rotate(45deg);
+	        transform: rotate(45deg);
+	}
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+	background: white;
+	color: #333;
+	box-shadow: 0 3px 14px rgba(0,0,0,0.4);
+	}
+.leaflet-container a.leaflet-popup-close-button {
+	position: absolute;
+	top: 0;
+	right: 0;
+	border: none;
+	text-align: center;
+	width: 24px;
+	height: 24px;
+	font: 16px/24px Tahoma, Verdana, sans-serif;
+	color: #757575;
+	text-decoration: none;
+	background: transparent;
+	}
+.leaflet-container a.leaflet-popup-close-button:hover,
+.leaflet-container a.leaflet-popup-close-button:focus {
+	color: #585858;
+	}
+.leaflet-popup-scrolled {
+	overflow: auto;
+	}
+
+.leaflet-oldie .leaflet-popup-content-wrapper {
+	-ms-zoom: 1;
+	}
+.leaflet-oldie .leaflet-popup-tip {
+	width: 24px;
+	margin: 0 auto;
+
+	-ms-filter: "progid:DXImageTransform.Microsoft.Matrix(M11=0.70710678, M12=0.70710678, M21=-0.70710678, M22=0.70710678)";
+	filter: progid:DXImageTransform.Microsoft.Matrix(M11=0.70710678, M12=0.70710678, M21=-0.70710678, M22=0.70710678);
+	}
+
+.leaflet-oldie .leaflet-control-zoom,
+.leaflet-oldie .leaflet-control-layers,
+.leaflet-oldie .leaflet-popup-content-wrapper,
+.leaflet-oldie .leaflet-popup-tip {
+	border: 1px solid #999;
+	}
+
+
+
+
+.leaflet-div-icon {
+	background: #fff;
+	border: 1px solid #666;
+	}
+
+
+
+
+.leaflet-tooltip {
+	position: absolute;
+	padding: 6px;
+	background-color: #fff;
+	border: 1px solid #fff;
+	border-radius: 3px;
+	color: #222;
+	white-space: nowrap;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+	pointer-events: none;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+	}
+.leaflet-tooltip.leaflet-interactive {
+	cursor: pointer;
+	pointer-events: auto;
+	}
+.leaflet-tooltip-top:before,
+.leaflet-tooltip-bottom:before,
+.leaflet-tooltip-left:before,
+.leaflet-tooltip-right:before {
+	position: absolute;
+	pointer-events: none;
+	border: 6px solid transparent;
+	background: transparent;
+	content: "";
+	}
+
+
+
+.leaflet-tooltip-bottom {
+	margin-top: 6px;
+}
+.leaflet-tooltip-top {
+	margin-top: -6px;
+}
+.leaflet-tooltip-bottom:before,
+.leaflet-tooltip-top:before {
+	left: 50%;
+	margin-left: -6px;
+	}
+.leaflet-tooltip-top:before {
+	bottom: 0;
+	margin-bottom: -12px;
+	border-top-color: #fff;
+	}
+.leaflet-tooltip-bottom:before {
+	top: 0;
+	margin-top: -12px;
+	margin-left: -6px;
+	border-bottom-color: #fff;
+	}
+.leaflet-tooltip-left {
+	margin-left: -6px;
+}
+.leaflet-tooltip-right {
+	margin-left: 6px;
+}
+.leaflet-tooltip-left:before,
+.leaflet-tooltip-right:before {
+	top: 50%;
+	margin-top: -6px;
+	}
+.leaflet-tooltip-left:before {
+	right: 0;
+	margin-right: -12px;
+	border-left-color: #fff;
+	}
+.leaflet-tooltip-right:before {
+	left: 0;
+	margin-left: -12px;
+	border-right-color: #fff;
+	}
+
+
+
+@media print {
+	
+	.leaflet-control {
+		-webkit-print-color-adjust: exact;
+		print-color-adjust: exact;
+		}
+	}
+
+.leaflet-container { background: var(--bg); font-family: var(--ui); }
+.leaflet-bar a { background: var(--panel); color: var(--fg); border-bottom-color: var(--line); }
+.leaflet-bar a:hover { background: var(--panel-2); color: var(--fg); }
+.leaflet-touch .leaflet-bar { border: 0; box-shadow: var(--shadow); }
+.leaflet-control-attribution { background: var(--label-halo) !important; color: var(--muted); }
+.leaflet-control-scale-line { background: var(--label-halo); color: var(--fg); border-color: var(--muted); }
+
+.fabs { position: absolute; top: 12px; right: 16px; z-index: 500; display: flex; flex-direction: column; gap: 10px; }
+.fab { width: 46px; height: 46px; border-radius: 12px; border: 0; background: var(--panel); box-shadow: var(--shadow); display: grid; place-items: center; position: relative; }
+.fab svg { width: 22px; height: 22px; stroke: var(--fg); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.fab[aria-pressed="true"] { background: var(--accent); }
+.fab[aria-pressed="true"] svg { stroke: var(--accent-fg); }
+.badge { position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--accent); color: var(--accent-fg); font-size: 12px; font-weight: 700; line-height: 20px; text-align: center; font-variant-numeric: tabular-nums; }
+
+.tally { position: absolute; left: 16px; top: 12px; z-index: 500; max-width: calc(100% - 96px); background: var(--panel); box-shadow: var(--shadow); border-radius: 12px; padding: 8px 12px; display: flex; gap: 12px; align-items: baseline; font-variant-numeric: tabular-nums; }
+.tally b { font-size: 17px; }
+.tally span { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
+.tally .dot { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; }
+
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 600; background: var(--panel); border-radius: 16px 16px 0 0; box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.25); padding: 14px 16px calc(16px + env(safe-area-inset-bottom, 0px)); max-height: 72%; overflow-y: auto; -webkit-overflow-scrolling: touch; transform: translateY(105%); transition: transform 0.18s ease-out; }
+.sheet.open { transform: none; }
+@media (prefers-reduced-motion: reduce) { .sheet { transition: none; } }
+@media (min-width: 720px) { .sheet { left: 16px; right: auto; bottom: 16px; width: 380px; border-radius: 16px; } }
+.sheet-head { display: flex; gap: 12px; align-items: flex-start; }
+.sheet-head > div { flex: 1; min-width: 0; }
+.kicker { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+.sheet h2 { margin: 2px 0 0; font-size: 20px; line-height: 1.2; text-wrap: balance; overflow-wrap: anywhere; }
+.x { flex: none; width: 40px; height: 40px; border-radius: 20px; border: 0; background: var(--panel-2); font-size: 20px; line-height: 1; }
+.seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
+.seg button { min-height: 52px; border-radius: 12px; border: 2px solid var(--line); background: var(--panel); font-weight: 600; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; }
+.seg button i { width: 26px; height: 10px; border-radius: 3px; border: 1.5px solid var(--county-line); }
+.seg button[data-g="1"] i { background: var(--found-fill); border-color: var(--found); }
+.seg button[data-g="2"] i { background: var(--notfound-fill); border-color: var(--notfound); }
+.seg button[aria-pressed="true"] { border-color: var(--fg); background: var(--panel-2); }
+.note { margin-top: 12px; color: var(--muted); font-size: 13px; display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.link { border: 0; background: none; padding: 8px 0; color: var(--accent); font-weight: 600; text-decoration: underline; }
+dl { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; margin: 14px 0 0; }
+dt { color: var(--muted); font-size: 13px; }
+dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.btn { display: inline-flex; align-items: center; justify-content: center; min-height: 46px; padding: 0 16px; border-radius: 12px; border: 2px solid var(--line); background: var(--panel); font-weight: 600; text-decoration: none; color: var(--fg); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+.row .btn { flex: 1 1 140px; }
+.incounty { margin-top: 14px; padding: 12px; border-radius: 12px; background: var(--panel-2); display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.incounty > div { min-width: 0; }
+.toggles { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; }
+.toggles label { display: flex; align-items: center; gap: 12px; min-height: 48px; border-top: 1px solid var(--line); }
+.toggles input { width: 22px; height: 22px; accent-color: var(--accent); flex: none; }
+.toggles .sw { flex: none; width: 26px; display: grid; place-items: center; }
+.toggles small { display: block; color: var(--muted); }
+.sw .ln { width: 24px; height: 5px; border-radius: 3px; background: var(--accent); }
+.sw .pt { width: 11px; height: 11px; border-radius: 50%; border: 1.5px solid var(--panel); box-shadow: 0 0 0 1px var(--muted); }
+.sw .bx { width: 22px; height: 14px; border-radius: 3px; border: 1.5px solid var(--county-line); background: linear-gradient(90deg, var(--found-fill) 50%, var(--notfound-fill) 50%); }
+.changes { margin: 12px 0 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
+.changes li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.changes li span:last-child { color: var(--muted); white-space: nowrap; }
+.changes li.done { opacity: 0.55; }
+textarea { width: 100%; min-height: 120px; margin-top: 12px; font: 12px/1.4 var(--mono); background: var(--panel-2); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+.toast { position: absolute; left: 50%; top: 70px; transform: translateX(-50%); z-index: 700; background: var(--fg); color: var(--panel); padding: 10px 16px; border-radius: 22px; box-shadow: var(--shadow); max-width: calc(100% - 32px); text-align: center; }
+.loading { position: absolute; inset: 0; z-index: 800; display: grid; place-items: center; background: var(--bg); text-align: center; padding: 0 16px; }
+.loading p { max-width: 30em; color: var(--muted); }
+.clabel { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; font-size: 11px; font-weight: 600; color: var(--label); text-shadow: 0 0 3px var(--label-halo), 0 0 3px var(--label-halo), 0 0 2px var(--label-halo); pointer-events: none; }
+.poi { width: 26px; height: 26px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: var(--panel); border: 2px solid var(--fg); display: grid; place-items: center; }
+.poi b { transform: rotate(45deg); font-size: 11px; }
+.me { width: 16px; height: 16px; border-radius: 50%; background: #1a73e8; border: 3px solid #ffffff; box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.35); }
+</style>
+
+<div id="app">
+  <div id="map" aria-label="Trip map"></div>
+
+  <div class="tally" id="tally" hidden></div>
+
+  <div class="fabs">
+    <button class="fab" id="btnLayers" type="button" aria-label="Layers" title="Layers">
+      <svg viewBox="0 0 24 24"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="m3 13 9 5 9-5"/></svg>
+    </button>
+    <button class="fab" id="btnExport" type="button" aria-label="County changes" title="County changes">
+      <svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 9 5-5 5 5"/><path d="M5 15v4h14v-4"/></svg>
+      <span class="badge" id="badge" hidden>0</span>
+    </button>
+    <button class="fab" id="btnLocate" type="button" aria-label="Show my location" title="My location" aria-pressed="false" hidden>
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+    </button>
+  </div>
+
+  <section class="sheet" id="sheet" aria-live="polite"></section>
+  <input type="file" id="filePick" hidden aria-label="Data file">
+  <div class="toast" id="toast" hidden></div>
+  <div class="loading" id="loading"><p id="loadingMsg">Loading counties, caches and route…</p></div>
+</div>
+
+<script src="leaflet.js"></script>
+<script>
+(function () {
+'use strict';
+var IN_PREVIEW = !!(window.claude && window.claude.use);   // published preview: no street map, no GPS
+var STATUS = { 0: 'Hidden', 1: 'Found', 2: 'Not Found' };
+var STOPS = { 1: ['Brewery', 'B'], 2: ['Hike/Trailhead', 'T'], 3: ['Hotel', 'H'], 4: ['Park/Garden/Viewpoint', 'P'], 5: ['Restaurant', 'R'], 6: ['Other POI', '•'] };
+var store = {
+  get: function (k, d) { try { var v = localStorage.getItem('tpm.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set: function (k, v) { try { localStorage.setItem('tpm.' + k, JSON.stringify(v)); return true; } catch (e) { return false; } }
+};
+var $ = function (id) { return document.getElementById(id); };
+var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+var css = function (n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); };
+
+/* ---------- geometry helpers ---------- */
+function mx(lon) { return (lon + 180) / 360; }
+function my(lat) { var s = Math.sin(lat * Math.PI / 180); return 0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI); }
+function unmy(y) { return Math.atan(Math.sinh(Math.PI * (1 - 2 * y))) * 180 / Math.PI; }
+function decode(str, merc) {           // Google encoded polyline, precision 5
+  var out = [], i = 0, lat = 0, lon = 0, n = str.length, b, sh, r;
+  while (i < n) {
+    sh = 0; r = 0; do { b = str.charCodeAt(i++) - 63; r |= (b & 31) << sh; sh += 5; } while (b >= 32);
+    lat += (r & 1) ? ~(r >> 1) : (r >> 1);
+    sh = 0; r = 0; do { b = str.charCodeAt(i++) - 63; r |= (b & 31) << sh; sh += 5; } while (b >= 32);
+    lon += (r & 1) ? ~(r >> 1) : (r >> 1);
+    if (merc) out.push(mx(lon / 1e5), my(lat / 1e5)); else out.push([lat / 1e5, lon / 1e5]);
+  }
+  return out;
+}
+function routePts(r) { return r.p ? r.p : decode(r.l, false); }
+function prepCounty(c) {
+  var rings = [], B = [Infinity, Infinity, -Infinity, -Infinity];
+  for (var k = 0; k < c.r.length; k++) {
+    var a = new Float64Array(decode(c.r[k], true)), b = [Infinity, Infinity, -Infinity, -Infinity];
+    for (var i = 0; i < a.length; i += 2) { if (a[i] < b[0]) b[0] = a[i]; if (a[i] > b[2]) b[2] = a[i]; if (a[i + 1] < b[1]) b[1] = a[i + 1]; if (a[i + 1] > b[3]) b[3] = a[i + 1]; }
+    rings.push({ a: a, b: b });
+    if (b[0] < B[0]) B[0] = b[0]; if (b[1] < B[1]) B[1] = b[1]; if (b[2] > B[2]) B[2] = b[2]; if (b[3] > B[3]) B[3] = b[3];
+  }
+  c.rings = rings; c.b = B; c.r = null;
+  var a0 = rings[0].a, A = 0, cx = 0, cy = 0, m = a0.length;   // centroid of the largest ring, for the name label
+  for (var j = 0; j < m; j += 2) { var x0 = a0[j], y0 = a0[j + 1], x1 = a0[(j + 2) % m], y1 = a0[(j + 3) % m], f = x0 * y1 - x1 * y0; A += f; cx += (x0 + x1) * f; cy += (y0 + y1) * f; }
+  if (Math.abs(A) > 1e-18) { c.lx = cx / (3 * A); c.ly = cy / (3 * A); } else { c.lx = (B[0] + B[2]) / 2; c.ly = (B[1] + B[3]) / 2; }
+  if (!inCounty(c, c.lx, c.ly)) { c.lx = (rings[0].b[0] + rings[0].b[2]) / 2; c.ly = (rings[0].b[1] + rings[0].b[3]) / 2; }
+}
+function inCounty(c, x, y) {
+  if (x < c.b[0] || x > c.b[2] || y < c.b[1] || y > c.b[3]) return false;
+  var inside = false;
+  for (var k = 0; k < c.rings.length; k++) {
+    var r = c.rings[k], b = r.b;
+    if (x < b[0] || x > b[2] || y < b[1] || y > b[3]) continue;
+    var a = r.a, n = a.length;
+    for (var i = 0, j = n - 2; i < n; j = i, i += 2) {
+      var yi = a[i + 1], yj = a[j + 1];
+      if ((yi > y) !== (yj > y) && x < (a[j] - a[i]) * (y - yi) / (yj - yi) + a[i]) inside = !inside;
+    }
+  }
+  return inside;
+}
+function countyAt(lat, lon) {
+  var x = mx(lon), y = my(lat);
+  for (var i = 0; i < D.counties.length; i++) if (inCounty(D.counties[i], x, y)) return D.counties[i];
+  return null;
+}
+
+/* ---------- state ---------- */
+var D = null, map = null, countyLayer = null, labelPane = null;
+var edits = store.get('edits', {});            // { id: { g, was, t, done } }  — changes made on this phone
+var show = Object.assign({ counties: true, names: true, caches: true, labs: true, route: true, pois: true, streets: true }, store.get('show', {}));
+var groups = {};
+function eff(c) { var e = edits[c.id]; return e ? e.g : c.g; }
+function pendingCount() { var n = 0; for (var k in edits) if (!edits[k].done) n++; return n; }
+
+/* ---------- county tiles ---------- */
+function drawTile(ctx, coords, ts, dpr) {
+  var n = Math.pow(2, coords.z), S = ts * n, x0 = coords.x / n, y0 = coords.y / n, pad = 4 / S;
+  var tx0 = x0 - pad, ty0 = y0 - pad, tx1 = x0 + 1 / n + pad, ty1 = y0 + 1 / n + pad, eps = 0.7 / S;
+  var cLine = css('--county-line'), cEdit = css('--county-edit'), fills = { 1: css('--found-fill'), 2: css('--notfound-fill') };
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.lineJoin = 'round';
+  var base = coords.z < 5 ? 0.35 : coords.z < 7 ? 0.6 : coords.z < 10 ? 0.9 : 1.2;
+  var later = [];
+  for (var pass = 0; pass < 2; pass++) {
+    var list = pass ? later : D.counties;
+    for (var i = 0; i < list.length; i++) {
+      var c = list[i], b = c.b;
+      if (b[2] < tx0 || b[0] > tx1 || b[3] < ty0 || b[1] > ty1) continue;
+      var e = edits[c.id];
+      if (!pass && e && !e.done) { later.push(c); continue; }       // draw phone edits last so their outline sits on top
+      ctx.beginPath();
+      var any = false;
+      for (var k = 0; k < c.rings.length; k++) {
+        var r = c.rings[k], rb = r.b;
+        if (rb[2] < tx0 || rb[0] > tx1 || rb[3] < ty0 || rb[1] > ty1) continue;
+        if (k > 0 && rb[2] - rb[0] < eps && rb[3] - rb[1] < eps) continue;
+        var a = r.a, len = a.length, lx = a[0], ly = a[1];
+        ctx.moveTo((lx - x0) * S, (ly - y0) * S);
+        for (var j = 2; j < len; j += 2) {
+          var x = a[j], y = a[j + 1];
+          if (j < len - 2 && Math.abs(x - lx) + Math.abs(y - ly) < eps) continue;
+          ctx.lineTo((x - x0) * S, (y - y0) * S); lx = x; ly = y;
+        }
+        ctx.closePath(); any = true;
+      }
+      if (!any) continue;
+      var g = e ? e.g : c.g;
+      if (fills[g]) { ctx.fillStyle = fills[g]; ctx.fill('evenodd'); }
+      if (pass) { ctx.strokeStyle = cEdit; ctx.lineWidth = Math.max(1.6, base * 2); ctx.setLineDash([5, 3]); }
+      else { ctx.strokeStyle = cLine; ctx.lineWidth = base; ctx.setLineDash([]); }
+      ctx.stroke();
+    }
+  }
+}
+function redrawCounties() { if (countyLayer) countyLayer.redraw(); }
+
+/* ---------- labels ---------- */
+function drawLabels() {
+  if (!labelPane) return;
+  labelPane.textContent = '';
+  if (!show.counties || !show.names || map.getZoom() < 8) return;
+  var bd = map.getBounds(), w = mx(bd.getWest()), e = mx(bd.getEast()), n = my(bd.getNorth()), s = my(bd.getSouth()), made = 0;
+  var frag = document.createDocumentFragment();
+  for (var i = 0; i < D.counties.length && made < 160; i++) {
+    var c = D.counties[i];
+    if (c.lx < w || c.lx > e || c.ly < n || c.ly > s) continue;
+    if (eff(c) === 0 && map.getZoom() < 9) continue;
+    var p = map.latLngToLayerPoint([unmy(c.ly), c.lx * 360 - 180]);
+    var d = document.createElement('div'); d.className = 'clabel'; d.style.left = p.x + 'px'; d.style.top = p.y + 'px';
+    d.textContent = shortName(c); frag.appendChild(d); made++;
+  }
+  labelPane.appendChild(frag);
+}
+function shortName(c) { return c.n.replace(/ (County|Parish|Borough|Census Area|Municipality|Planning Region|city and borough)$/i, ''); }
+function fullName(c) { return c.n + ', ' + c.s; }
+
+/* ---------- map ---------- */
+function buildMap() {
+  map = L.map('map', { zoomControl: false, preferCanvas: true, minZoom: 3, maxZoom: 17, zoomSnap: 0.5, attributionControl: !IN_PREVIEW });
+  L.control.scale({ position: 'bottomleft' }).addTo(map);
+  if (!IN_PREVIEW) {
+    groups.streets = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, crossOrigin: true, attribution: '&copy; OpenStreetMap contributors' });
+  }
+  var Grid = L.GridLayer.extend({
+    createTile: function (coords) {
+      var c = document.createElement('canvas'), ts = this.getTileSize().x, dpr = Math.min(window.devicePixelRatio || 1, 2);
+      c.width = c.height = ts * dpr;
+      drawTile(c.getContext('2d'), coords, ts, dpr);
+      return c;
+    }
+  });
+  map.createPane('counties').style.zIndex = 250;
+  countyLayer = new Grid({ pane: 'counties', updateWhenZooming: false, keepBuffer: 1 });
+  groups.counties = countyLayer;
+  labelPane = map.createPane('names'); labelPane.style.zIndex = 620; labelPane.style.pointerEvents = 'none'; labelPane.classList.add('leaflet-zoom-hide');
+
+  var canvas = L.canvas({ padding: 0.3 });
+  groups.route = L.layerGroup(D.route.map(function (r) {
+    return L.polyline(routePts(r), { renderer: canvas, color: css('--accent'), weight: 5, opacity: 0.9, interactive: false });
+  }));
+  var halo = css('--panel');
+  var allDots = [];
+  function dots(arr, color, radius) {
+    return arr.map(function (p) { var m = L.circleMarker([p.y, p.x], { renderer: canvas, radius: radius, color: halo, weight: 1, fillColor: color, fillOpacity: 1, interactive: false }); m._r0 = radius; allDots.push(m); return m; });
+  }
+  var dotScale = 0;
+  function sizeDots() {
+    var z = map.getZoom(), k = z < 6 ? 0.45 : z < 8 ? 0.65 : z < 10 ? 0.85 : z < 13 ? 1 : 1.3;
+    if (k === dotScale) return; dotScale = k;
+    for (var i = 0; i < allDots.length; i++) { allDots[i].options.weight = k < 0.7 ? 0.5 : 1; allDots[i].setRadius(allDots[i]._r0 * k); }
+  }
+  groups.labs = L.layerGroup(dots(D.labs, css('--lab'), 3.5));
+  groups.caches = L.layerGroup(dots(D.caches.filter(function (c) { return c.cat !== 9; }), css('--cache'), 4.5)
+    .concat(dots(D.caches.filter(function (c) { return c.cat === 9; }), css('--special'), 5.5)));
+  groups.pois = L.layerGroup(D.pois.map(function (p) {
+    return L.marker([p.y, p.x], { interactive: false, keyboard: false, icon: L.divIcon({ className: '', iconSize: [26, 26], iconAnchor: [13, 26], html: '<div class="poi"><b>' + esc(STOPS[p.stop] ? STOPS[p.stop][1] : '•') + '</b></div>' }) });
+  }));
+  ['streets', 'counties', 'route', 'labs', 'caches', 'pois'].forEach(function (k) { if (groups[k] && show[k]) groups[k].addTo(map); });
+
+  var v = store.get('view', null);
+  if (v && isFinite(v.lat) && isFinite(v.lng) && isFinite(v.z)) map.setView([v.lat, v.lng], v.z);
+  else {
+    var pts = []; D.route.forEach(function (r) { pts = pts.concat(routePts(r)); });
+    if (!pts.length) D.caches.forEach(function (c) { pts.push([c.y, c.x]); });
+    if (pts.length) map.fitBounds(L.latLngBounds(pts), { padding: [20, 20] }); else map.setView([41, -80], 6);
+  }
+  map.on('moveend', function () { var c = map.getCenter(); store.set('view', { lat: c.lat, lng: c.lng, z: map.getZoom() }); drawLabels(); });
+  map.on('zoomend', sizeDots);
+  map.on('click', onTap);
+  sizeDots(); drawLabels();
+}
+
+/* ---------- tapping ---------- */
+function onTap(ev) {
+  var best = null, bd = 24 * 24, cp = ev.containerPoint;
+  function scan(arr, kind) {
+    for (var i = 0; i < arr.length; i++) {
+      var p = map.latLngToContainerPoint([arr[i].y, arr[i].x]), dx = p.x - cp.x, dy = p.y - cp.y, d = dx * dx + dy * dy;
+      if (d < bd) { bd = d; best = { kind: kind, f: arr[i] }; }
+    }
+  }
+  if (show.pois) scan(D.pois, 'poi');
+  if (show.caches) scan(D.caches, 'cache');
+  if (show.labs) scan(D.labs, 'lab');
+  if (best) return showPoint(best.kind, best.f);
+  if (show.counties) { var c = countyAt(ev.latlng.lat, ev.latlng.lng); if (c) return showCounty(c); }
+  closeSheet();
+}
+
+/* ---------- sheet ---------- */
+var sheet = null;
+function openSheet(html) { sheet.innerHTML = html; sheet.classList.add('open'); sheet.scrollTop = 0; }
+function closeSheet() { sheet.classList.remove('open'); }
+function head(kicker, title) {
+  return '<div class="sheet-head"><div><div class="kicker">' + esc(kicker) + '</div><h2>' + esc(title) + '</h2></div><button class="x" type="button" data-act="close" aria-label="Close">×</button></div>';
+}
+function segHtml(c) {
+  var g = eff(c), h = '<div class="seg" role="group" aria-label="County status">';
+  [1, 2, 0].forEach(function (v) { h += '<button type="button" data-act="set" data-id="' + esc(c.id) + '" data-g="' + v + '" aria-pressed="' + (g === v) + '"><i></i>' + STATUS[v] + '</button>'; });
+  return h + '</div>';
+}
+function editNote(c) {
+  var e = edits[c.id]; if (!e) return '';
+  return '<div class="note"><span>' + (e.done ? 'Changed on this phone and already saved to a file.' : 'Changed on this phone from ' + STATUS[e.was] + '. Not saved to a file yet.') + '</span><button class="link" type="button" data-act="undo" data-id="' + esc(c.id) + '">Undo</button></div>';
+}
+function showCounty(c) {
+  openSheet(head(c.c === 'CA' ? 'Canada census division' : 'US county', fullName(c)) + segHtml(c) + editNote(c));
+}
+function row(k, v) { return (v == null || v === '') ? '' : '<dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd>'; }
+function showPoint(kind, f) {
+  var h = '', c = countyAt(f.y, f.x);
+  if (kind === 'cache') {
+    h = head((f.cat === 9 ? 'Special cache' : 'County cache') + ' · ' + f.code, f.name) + '<dl>' +
+      row('Type', f.type) + row('Difficulty / terrain', (f.d != null ? f.d : '?') + ' / ' + (f.t != null ? f.t : '?')) + row('Size', f.size) + row('Owner', f.owner) +
+      row('Favorites', f.fav) + row('Hint', f.hint) + row('My note', f.note) + (f.avail === 0 ? row('Status', 'Disabled') : '') + '</dl>';
+  } else if (kind === 'lab') {
+    h = head('Lab cache', f.name) + '<dl>' + row('Stop', f.desc) + row('Comment', f.note) + '</dl>';
+  } else {
+    h = head(STOPS[f.stop] ? STOPS[f.stop][0] : 'Point of interest', f.name || 'Unnamed stop') + '<dl>' + row('Notes', f.notes) + row('Google rating', f.g) + row('AllTrails rating', f.at) + row('Trail length', f.len) + row('Beer rating', f.beer) + '</dl>';
+  }
+  if (c) h += '<div class="incounty"><div><div class="kicker">In</div><b>' + esc(fullName(c)) + '</b> · ' + STATUS[eff(c)] + '</div>' +
+    (eff(c) === 1 ? '' : '<button class="btn primary" type="button" data-act="set" data-id="' + esc(c.id) + '" data-g="1" data-stay="1">Mark county found</button>') + '</div>';
+  var url = f.url && /^https?:\/\//i.test(f.url) ? f.url : null;
+  h += '<div class="row">' + (url ? '<a class="btn" href="' + esc(url) + '" target="_blank" rel="noopener">Open web page</a>' : '') +
+    '<button class="btn" type="button" data-act="copy" data-text="' + esc(f.y.toFixed(5) + ', ' + f.x.toFixed(5)) + '">Copy coordinates</button></div>';
+  sheet._point = { kind: kind, f: f };
+  openSheet(h);
+}
+function byId(id) { for (var i = 0; i < D.counties.length; i++) if (D.counties[i].id === id) return D.counties[i]; return null; }
+function setStatus(c, g) {
+  var e = edits[c.id];
+  if (g === c.g) delete edits[c.id];
+  else edits[c.id] = { g: g, was: c.g, t: new Date().toISOString() };
+  if (!store.set('edits', edits)) toast('This browser is not saving changes. Save a file before closing.');
+  redrawCounties(); refreshChrome();
+}
+function showLayers() {
+  var items = [
+    ['counties', 'Counties', 'Found, Not Found and Hidden', '<span class="bx"></span>'],
+    ['names', 'County names', 'Shown when zoomed in', ''],
+    ['route', 'Planned route', D.route.length + ' segments', '<span class="ln"></span>'],
+    ['caches', 'Planned geocaches', D.caches.length.toLocaleString() + ' · blue county, red special', '<span class="pt" style="background:var(--cache)"></span>'],
+    ['labs', 'Lab caches', D.labs.length.toLocaleString() + ' stops', '<span class="pt" style="background:var(--lab)"></span>'],
+    ['pois', 'Points of interest', D.pois.length.toLocaleString() + ' in this data', '']
+  ];
+  if (groups.streets) items.push(['streets', 'Street map', 'Needs a connection', '']);
+  var h = head('Map', 'Layers') + '<ul class="toggles">';
+  items.forEach(function (it) {
+    h += '<li><label for="lyr-' + it[0] + '"><input type="checkbox" id="lyr-' + it[0] + '" data-layer="' + it[0] + '"' + (show[it[0]] ? ' checked' : '') + '><span class="sw">' + it[3] + '</span><span>' + esc(it[1]) + '<small>' + esc(it[2]) + '</small></span></label></li>';
+  });
+  h += '</ul>';
+  if (!IN_PREVIEW) h += '<div class="row"><button class="btn" type="button" data-act="pick">Load a data file</button></div><p class="note">' + (D.built ? 'Trip data from ' + esc(D.built) + '. ' : '') + 'Loading a file replaces only the layers that file contains. County changes made on this phone are kept.</p>';
+  openSheet(h);
+}
+function changeList() {
+  var ids = Object.keys(edits).sort(function (a, b) { return edits[a].t < edits[b].t ? 1 : -1; });
+  return ids.map(function (id) { return { c: byId(id), e: edits[id], id: id }; }).filter(function (r) { return r.c; });
+}
+function csvText(rows) {
+  var q = function (v) { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  var out = ['LAYER,ID_FIELD,ID,NAME,STATE,GEOCACHE,STATUS,PREVIOUS,EDITED'];
+  rows.forEach(function (r) {
+    var us = r.c.c === 'US';
+    out.push([us ? 'Geocache_Counties' : 'Geocache_Counties_Canada', us ? (r.c.x ? 'NAME' : 'GEOID') : 'CDUID', us && r.c.x ? r.c.n.replace(/ Planning Region$/, '') : r.id, r.c.n, r.c.s, r.e.g, STATUS[r.e.g], r.e.was, r.e.t].map(q).join(','));
+  });
+  return out.join('\r\n') + '\r\n';
+}
+function showExport() {
+  var rows = changeList(), pend = rows.filter(function (r) { return !r.e.done; });
+  var h = head('County changes', pend.length ? pend.length + (pend.length === 1 ? ' change' : ' changes') + ' to save' : 'Nothing new to save');
+  if (!rows.length) h += '<p class="note">Tap a county and pick Found, Not Found or Hidden. Each change is listed here until you save it to a file for ArcGIS Pro.</p>';
+  else {
+    h += '<ul class="changes">';
+    rows.forEach(function (r) { h += '<li class="' + (r.e.done ? 'done' : '') + '"><span>' + esc(fullName(r.c)) + '</span><span>' + STATUS[r.e.was] + ' → ' + STATUS[r.e.g] + '</span></li>'; });
+    h += '</ul><div class="row"><button class="btn primary" type="button" data-act="save"' + (pend.length ? '' : ' disabled') + '>Save new changes as CSV</button><button class="btn" type="button" data-act="saveall">Save all ' + rows.length + '</button></div>' +
+      '<div class="row"><button class="btn" type="button" data-act="copycsv">Copy as text</button></div>' +
+      '<p class="note">Saved changes stay on the map here. The file lists each county ID with its new GEOCACHE code (0 Hidden, 1 Found, 2 Not Found).</p>';
+  }
+  openSheet(h);
+}
+function saveCsv(all) {
+  var rows = changeList().filter(function (r) { return all || !r.e.done; }); if (!rows.length) return;
+  var text = csvText(rows), name = 'county_changes_' + new Date().toISOString().slice(0, 10) + '.csv';
+  var done = function () { rows.forEach(function (r) { r.e.done = true; }); store.set('edits', edits); redrawCounties(); refreshChrome(); showExport(); toast('Saved ' + rows.length + (rows.length === 1 ? ' change' : ' changes')); };
+  if (IN_PREVIEW) {
+    window.claude.use('downloads').then(function (dl) {
+      if (!dl) { showCsvText(text); return; }
+      return dl.save({ filename: name, data: text }).then(done);
+    }).catch(function (err) { if (err && err.code === 'declined') toast('Not saved'); else showCsvText(text); });
+  } else {
+    try {
+      var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' })); a.download = name;
+      document.body.appendChild(a); a.click(); a.remove(); done();
+    } catch (e) { showCsvText(text); }
+  }
+}
+function showCsvText(text) {
+  showExport();
+  var ta = document.createElement('textarea'); ta.id = 'csvText'; ta.readOnly = true; ta.value = text; ta.setAttribute('aria-label', 'County changes as text');
+  sheet.appendChild(ta); ta.focus(); ta.select();
+  toast('Saving a file is not available here. Copy the text instead.');
+}
+function copyText(t, msg) {
+  var fail = function () { toast('Could not copy. Select the text and copy it by hand.'); };
+  try { navigator.clipboard.writeText(t).then(function () { toast(msg); }, fail); } catch (e) { fail(); }
+}
+
+/* ---------- chrome ---------- */
+var toastTimer = null;
+function toast(msg) { var t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.hidden = true; }, 3200); }
+function refreshChrome() {
+  var n = pendingCount(), b = $('badge'); b.hidden = !n; b.textContent = n;
+  var f = 0, nf = 0; D.counties.forEach(function (c) { var g = eff(c); if (g === 1) f++; else if (g === 2) nf++; });
+  var t = $('tally'); t.hidden = false;
+  t.innerHTML = '<div><i class="dot" style="background:var(--found)"></i><b>' + f.toLocaleString() + '</b> <span>found</span></div><div><i class="dot" style="background:var(--notfound)"></i><b>' + nf.toLocaleString() + '</b> <span>to find</span></div>';
+}
+function wire() {
+  sheet = $('sheet');
+  sheet.addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-act]'); if (!b) return;
+    var act = b.getAttribute('data-act'), c = b.getAttribute('data-id') ? byId(b.getAttribute('data-id')) : null;
+    if (act === 'close') closeSheet();
+    else if (act === 'set' && c) {
+      setStatus(c, +b.getAttribute('data-g'));
+      if (b.getAttribute('data-stay') && sheet._point) showPoint(sheet._point.kind, sheet._point.f); else showCounty(c);
+      toast(shortName(c) + ' marked ' + STATUS[eff(c)]);
+    }
+    else if (act === 'undo' && c) { setStatus(c, c.g); showCounty(c); toast('Change undone'); }
+    else if (act === 'save') saveCsv(false);
+    else if (act === 'saveall') saveCsv(true);
+    else if (act === 'pick') $('filePick').click();
+    else if (act === 'copycsv') copyText(csvText(changeList()), 'Copied');
+    else if (act === 'copy') copyText(b.getAttribute('data-text'), 'Coordinates copied');
+  });
+  sheet.addEventListener('change', function (ev) {
+    var k = ev.target.getAttribute && ev.target.getAttribute('data-layer'); if (!k) return;
+    show[k] = ev.target.checked; store.set('show', show);
+    if (groups[k]) { if (show[k]) groups[k].addTo(map); else map.removeLayer(groups[k]); }
+    drawLabels();
+  });
+  $('btnLayers').addEventListener('click', showLayers);
+  $('btnExport').addEventListener('click', showExport);
+  var me = null, watch = null, first = true, loc = $('btnLocate');
+  if (!IN_PREVIEW && navigator.geolocation) {
+    loc.hidden = false;
+    loc.addEventListener('click', function () {
+      if (watch != null) { if (me) map.setView(me.getLatLng(), Math.max(map.getZoom(), 12)); return; }
+      first = true;
+      watch = navigator.geolocation.watchPosition(function (p) {
+        var ll = [p.coords.latitude, p.coords.longitude];
+        if (!me) me = L.marker(ll, { interactive: false, keyboard: false, icon: L.divIcon({ className: '', iconSize: [16, 16], iconAnchor: [11, 11], html: '<div class="me"></div>' }) }).addTo(map); else me.setLatLng(ll);
+        loc.setAttribute('aria-pressed', 'true');
+        if (first) { first = false; map.setView(ll, Math.max(map.getZoom(), 11)); }
+      }, function () { toast('Location is not available. Check location permission for this site.'); navigator.geolocation.clearWatch(watch); watch = null; loc.setAttribute('aria-pressed', 'false'); },
+      { enableHighAccuracy: true, maximumAge: 10000 });
+    });
+  }
+  var mq = window.matchMedia('(prefers-color-scheme: dark)'), retheme = function () { setTimeout(redrawCounties, 0); };
+  if (mq.addEventListener) mq.addEventListener('change', retheme);
+  new MutationObserver(retheme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+}
+
+/* ---------- data on this phone ---------- */
+var LAYERS = ['counties', 'caches', 'labs', 'pois', 'route', 'status', 'built'];
+function idb() {
+  return new Promise(function (res, rej) {
+    var q = indexedDB.open('tpm', 1);
+    q.onupgradeneeded = function () { q.result.createObjectStore('kv'); };
+    q.onsuccess = function () { res(q.result); }; q.onerror = function () { rej(q.error); };
+  });
+}
+function idbGetAll() {
+  return idb().then(function (db) {
+    return new Promise(function (res, rej) {
+      var out = {}, tx = db.transaction('kv'), st = tx.objectStore('kv'), left = LAYERS.length;
+      LAYERS.forEach(function (k) { var q = st.get(k); q.onsuccess = function () { if (q.result !== undefined) out[k] = q.result; if (!--left) res(out); }; q.onerror = function () { rej(q.error); }; });
+    });
+  });
+}
+function idbPut(obj) {
+  return idb().then(function (db) {
+    return new Promise(function (res, rej) {
+      var tx = db.transaction('kv', 'readwrite'), st = tx.objectStore('kv');
+      Object.keys(obj).forEach(function (k) { st.put(obj[k], k); });
+      tx.oncomplete = function () { res(); }; tx.onerror = tx.onabort = function () { rej(tx.error); };
+    });
+  });
+}
+function num(v) { v = parseFloat(v); return isFinite(v) ? v : null; }
+function str(v) { return v == null ? null : String(v).trim() || null; }
+function fromGeoJSON(gj) {            // a layer exported from ArcGIS Pro with Features To JSON (GeoJSON, WGS 1984)
+  var fs = gj.features || [], first = null, i;
+  for (i = 0; i < fs.length; i++) if (fs[i] && fs[i].geometry) { first = fs[i]; break; }
+  if (!first) throw new Error('That file has no features in it.');
+  var t = first.geometry.type, P = first.properties || {}, c0 = first.geometry.coordinates;
+  var probe = t === 'Point' ? c0 : t === 'LineString' ? c0[0] : t === 'MultiLineString' ? c0[0][0] : null;
+  if (probe && (Math.abs(probe[0]) > 180 || Math.abs(probe[1]) > 90)) throw new Error('Coordinates are not latitude and longitude. Export with "Project to WGS_1984" checked.');
+  var pt = function (f) { var c = f.geometry && f.geometry.type === 'Point' ? f.geometry.coordinates : null; return c ? { x: +c[0].toFixed(5), y: +c[1].toFixed(5) } : null; };
+  if (t === 'LineString' || t === 'MultiLineString') {
+    var route = [];
+    fs.forEach(function (f) {
+      if (!f.geometry) return; var p = f.properties || {};
+      var parts = f.geometry.type === 'LineString' ? [f.geometry.coordinates] : f.geometry.type === 'MultiLineString' ? f.geometry.coordinates : [];
+      parts.forEach(function (ln) { if (ln.length > 1) route.push({ p: ln.map(function (c) { return [+c[1].toFixed(5), +c[0].toFixed(5)]; }), trip: str(p.TRIP) || '', notes: str(p.NOTES) || '' }); });
+    });
+    return { route: route };
+  }
+  if (t !== 'Point') throw new Error('County outlines are too large to load this way. Use the starter data file for counties.');
+  var out = [];
+  if ('STOP_TYPE' in P) {
+    fs.forEach(function (f) { var q = pt(f), p = f.properties || {}; if (q) { q.stop = num(p.STOP_TYPE); q.name = str(p.NAME); q.url = str(p.URL); q.notes = str(p.NOTES); q.g = num(p.G_RATING); q.at = num(p.AT_RATING); q.len = num(p.TRAIL_LEN); q.beer = num(p.AVG_BEER_RTG); out.push(q); } });
+    return { pois: out };
+  }
+  if ('code' in P && ('difficulty' in P || 'terrain' in P)) {
+    fs.forEach(function (f) { var q = pt(f), p = f.properties || {}; if (q) { q.code = str(p.code); q.name = str(p.name) || ''; q.type = str(p.type); q.d = num(p.difficulty); q.t = num(p.terrain); q.size = str(p.container); q.owner = str(p.owner); q.fav = num(p.favoritePoints); q.hint = str(p.encodedHints); q.url = str(p.url); q.note = str(p.myNote); q.cat = num(p.archived); q.st = str(p.state); q.avail = num(p.available); out.push(q); } });
+    return { caches: out };
+  }
+  if ('Descript' in P || ('Name' in P && 'Comment' in P)) {
+    fs.forEach(function (f) { var q = pt(f), p = f.properties || {}; if (q) { q.name = str(p.Name) || ''; q.desc = str(p.Descript) || ''; q.note = str(p.Comment) || ''; out.push(q); } });
+    return { labs: out };
+  }
+  throw new Error('This point layer was not recognized. Expected planned geocaches, lab caches or points of interest.');
+}
+var NAMES = { counties: 'counties', caches: 'geocaches', labs: 'lab cache stops', pois: 'points of interest', route: 'route segments', status: 'county statuses' };
+function importFile(file) {
+  if (!file) return;
+  if (file.size > 60 * 1024 * 1024) { toast('That file is too large for a phone (over 60 MB).'); return; }
+  toast('Reading ' + file.name + '…');
+  file.text().then(function (txt) {
+    var j = JSON.parse(txt), put = {};
+    if (j && j.type === 'FeatureCollection') put = fromGeoJSON(j);
+    else if (j && typeof j === 'object') LAYERS.forEach(function (k) { if (j[k] != null) put[k] = j[k]; });
+    var got = Object.keys(put).filter(function (k) { return NAMES[k]; });
+    if (!got.length) throw new Error('No map layers were found in that file.');
+    if (!put.built) put.built = new Date().toISOString().slice(0, 10);
+    return idbPut(put).then(function () {
+      var msg = got.map(function (k) { var n = Array.isArray(put[k]) ? put[k].length : Object.keys(put[k]).length; return n.toLocaleString() + ' ' + NAMES[k]; }).join(', ');
+      store.set('flash', 'Loaded ' + msg); location.reload();
+    });
+  }).catch(function (err) {
+    toast(err instanceof SyntaxError ? 'That file is not valid JSON or GeoJSON.' : (err && err.message) || 'The file could not be loaded.');
+  });
+}
+function showWelcome() {
+  openSheet(head('Trip Planning Map', 'Load your trip data') + '<p class="note">This phone has no map data yet. Choose the trip data file you saved to Files or iCloud Drive. It stays on this phone and is never uploaded.</p><div class="row"><button class="btn primary" type="button" data-act="pick">Choose data file</button></div>');
+}
+
+/* ---------- boot ---------- */
+function start(data) {
+  D = { counties: data.counties || [], caches: data.caches || [], labs: data.labs || [], pois: data.pois || [], route: data.route || [], built: data.built || '' };
+  var st = data.status || null;
+  D.counties.forEach(function (c) { prepCounty(c); if (st && st[c.id] != null) c.g = +st[c.id]; });
+  for (var k in edits) { var c = byId(k); if (c && edits[k].g === c.g) delete edits[k]; }
+  buildMap(); refreshChrome(); $('loading').hidden = true;
+  var flash = store.get('flash', null); if (flash) { store.set('flash', null); toast(flash); }
+  if (!IN_PREVIEW && !D.counties.length && !D.caches.length && !D.route.length) showWelcome();
+}
+function boot() {
+  wire();
+  $('filePick').addEventListener('change', function (ev) { var f = ev.target.files && ev.target.files[0]; ev.target.value = ''; importFile(f); });
+  if (!window.L) { $('loadingMsg').textContent = 'The map library did not load. Check your connection and reload.'; return; }
+  if (IN_PREVIEW) {
+    fetch('tripdata.json').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(start)
+      .catch(function (err) { $('loadingMsg').textContent = 'The trip data did not load (' + (err && err.message || 'error') + '). Check your connection and reload.'; });
+  } else {
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
+    try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) {}
+    idbGetAll().then(start, function () { start({}); toast('This browser is blocking storage, so loaded data will not be kept.'); });
+  }
+}
+boot();
+})();
+</script>
+</body></html>
