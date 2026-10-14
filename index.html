@@ -10,17 +10,18 @@
   --line: #cfd7cc;
   --accent: #b3009e;        /* route magenta, used for the primary action */
   --accent-fg: #ffffff;
-  --found: #e8747c;
-  --found-fill: rgba(236, 120, 128, 0.46);
-  --notfound: #6fae3f;
-  --notfound-fill: rgba(150, 210, 105, 0.46);
+  --found: #5aa83a;
+  --found-fill: rgba(130, 205, 90, 0.46);
+  --notfound: #e06464;
+  --notfound-fill: rgba(242, 112, 112, 0.42);
+  --route: #f000c8;
   --county-line: #7d867f;
   --county-edit: #2a2f2c;
   --label: #3a443e;
   --label-halo: rgba(251, 252, 249, 0.85);
-  --cache: #1f5fd0;
-  --special: #8f1d1d;
-  --lab: #d98200;
+  --cache: #2b6fe8;
+  --special: #a3191b;
+  --lab: #3fae2a;
   --shadow: 0 2px 10px rgba(20, 30, 24, 0.22);
   --ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -29,18 +30,18 @@
   :root:not([data-theme="light"]) {
     --bg: #171c19; --panel: #222925; --panel-2: #2b332e; --fg: #e8eee9; --muted: #9eaaa2; --line: #3a443e;
     --accent: #e052d0; --accent-fg: #1a0f19;
-    --found: #f08a90; --found-fill: rgba(236, 120, 128, 0.42); --notfound: #8fcf5c; --notfound-fill: rgba(140, 205, 95, 0.36);
+    --found: #8fcf5c; --found-fill: rgba(130, 205, 90, 0.38); --notfound: #f08a90; --notfound-fill: rgba(242, 112, 112, 0.38); --route: #ff3fd6;
     --county-line: #66706a; --county-edit: #f2f5f2; --label: #c9d3cc; --label-halo: rgba(23, 28, 25, 0.85);
-    --cache: #6fa0ff; --special: #ff7a6b; --lab: #ffb23d; --shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+    --cache: #6fa0ff; --special: #ff6b6b; --lab: #6fd34f; --shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --bg: #171c19; --panel: #222925; --panel-2: #2b332e; --fg: #e8eee9; --muted: #9eaaa2; --line: #3a443e;
   --accent: #e052d0; --accent-fg: #1a0f19;
-  --found: #f08a90; --found-fill: rgba(236, 120, 128, 0.42); --notfound: #8fcf5c; --notfound-fill: rgba(140, 205, 95, 0.36);
+  --found: #8fcf5c; --found-fill: rgba(130, 205, 90, 0.38); --notfound: #f08a90; --notfound-fill: rgba(242, 112, 112, 0.38); --route: #ff3fd6;
   --county-line: #66706a; --county-edit: #f2f5f2; --label: #c9d3cc; --label-halo: rgba(23, 28, 25, 0.85);
-  --cache: #6fa0ff; --special: #ff7a6b; --lab: #ffb23d; --shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
+  --cache: #6fa0ff; --special: #ff6b6b; --lab: #6fd34f; --shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
   color-scheme: dark;
 }
 html, body { height: 100%; }
@@ -744,7 +745,15 @@ dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .toggles input { width: 22px; height: 22px; accent-color: var(--accent); flex: none; }
 .toggles .sw { flex: none; width: 26px; display: grid; place-items: center; }
 .toggles small { display: block; color: var(--muted); }
-.sw .ln { width: 24px; height: 5px; border-radius: 3px; background: var(--accent); }
+.sw .ln { width: 24px; height: 5px; border-radius: 3px; background: var(--route); }
+.sw .tri { width: 12px; height: 11px; background: var(--lab); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.sw svg, .poi svg { width: 24px; height: 24px; display: block; }
+.poi { filter: drop-shadow(0 0 1px #ffffff) drop-shadow(0 0 1px #ffffff) drop-shadow(0 1px 1px rgba(0,0,0,.35)); }
+.bases { list-style: none; margin: 4px 0 0; padding: 0; }
+.bases label { display: flex; align-items: center; gap: 12px; min-height: 44px; border-top: 1px solid var(--line); }
+.bases input { width: 20px; height: 20px; accent-color: var(--accent); flex: none; }
+.bases small { color: var(--muted); }
+.sub { margin: 18px 0 0; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
 .sw .pt { width: 11px; height: 11px; border-radius: 50%; border: 1.5px solid var(--panel); box-shadow: 0 0 0 1px var(--muted); }
 .sw .bx { width: 22px; height: 14px; border-radius: 3px; border: 1.5px solid var(--county-line); background: linear-gradient(90deg, var(--found-fill) 50%, var(--notfound-fill) 50%); }
 .changes { margin: 12px 0 0; padding: 0; list-style: none; border-top: 1px solid var(--line); }
@@ -756,8 +765,6 @@ textarea { width: 100%; min-height: 120px; margin-top: 12px; font: 12px/1.4 var(
 .loading { position: absolute; inset: 0; z-index: 800; display: grid; place-items: center; background: var(--bg); text-align: center; padding: 0 16px; }
 .loading p { max-width: 30em; color: var(--muted); }
 .clabel { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; font-size: 11px; font-weight: 600; color: var(--label); text-shadow: 0 0 3px var(--label-halo), 0 0 3px var(--label-halo), 0 0 2px var(--label-halo); pointer-events: none; }
-.poi { width: 26px; height: 26px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); background: var(--panel); border: 2px solid var(--fg); display: grid; place-items: center; }
-.poi b { transform: rotate(45deg); font-size: 11px; }
 .me { width: 16px; height: 16px; border-radius: 50%; background: #1a73e8; border: 3px solid #ffffff; box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.35); }
 </style>
 
@@ -791,7 +798,25 @@ textarea { width: 100%; min-height: 120px; margin-top: 12px; font: 12px/1.4 var(
 'use strict';
 var IN_PREVIEW = !!(window.claude && window.claude.use);   // published preview: no street map, no GPS
 var STATUS = { 0: 'Hidden', 1: 'Found', 2: 'Not Found' };
-var STOPS = { 1: ['Brewery', 'B'], 2: ['Hike/Trailhead', 'T'], 3: ['Hotel', 'H'], 4: ['Park/Garden/Viewpoint', 'P'], 5: ['Restaurant', 'R'], 6: ['Other POI', '•'] };
+var SVG = function (b) { return '<svg viewBox="0 0 24 24" aria-hidden="true">' + b + '</svg>'; };
+var STOPS = {
+  1: ['Brewery', SVG('<g fill="#7a4a12"><path d="M5.5 3h13l-1.6 7.6a4.9 4.9 0 0 1-9.8 0z"/><rect x="11" y="14.5" width="2" height="5.5"/><rect x="7.5" y="19.5" width="9" height="2" rx="1"/></g><path d="M7 5.2h10" stroke="#f4d58d" stroke-width="1.6"/>')],
+  2: ['Hike/Trailhead', SVG('<g stroke="#23913a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"><path d="M12.2 7.5 10.6 13.2"/><path d="m10.6 13.2-2.4 7.6"/><path d="m10.6 13.2 2.8 3.4.9 4.2"/><path d="m11.8 8.6-3.3 3.2"/><path d="m12 8.8 3.4 2.4"/><path d="M16.6 10.2 18 21" stroke-width="1.5"/></g><circle cx="13.4" cy="4.2" r="2.2" fill="#23913a"/>')],
+  3: ['Hotel', SVG('<g fill="#111111"><rect x="2.5" y="5" width="2.4" height="15" rx=".6"/><rect x="2.5" y="13.2" width="19" height="3.4"/><rect x="19.1" y="13.2" width="2.4" height="6.8" rx=".6"/><rect x="6.2" y="9.3" width="4.4" height="3.2" rx="1.2"/><rect x="11.4" y="9.6" width="10.1" height="3.6" rx="1"/></g>')],
+  4: ['Park/Garden/Viewpoint', SVG('<path fill="#1f8a3a" d="M12 1.5 17 8.6h-2.6l4.4 5.7h-3.6L20 20H4l4.8-5.7H5.2l4.4-5.7H7z"/><rect x="10.8" y="20" width="2.4" height="3" fill="#1f8a3a"/>')],
+  5: ['Restaurant', SVG('<g fill="#ee8a00"><path d="M5.6 2.5h1.3v5.6h1V2.5h1.3v5.6h1V2.5h1.3v6.4a2.6 2.6 0 0 1-2 2.5V22H7.6V11.4a2.6 2.6 0 0 1-2-2.5z"/><path d="M14.5 22V2.5c3.4.8 4.4 5.2 4.2 10.4h-2.2V22z"/></g>')],
+  6: ['Other POI', SVG('<path fill="#1565c0" d="M12 1.8a6.4 6.4 0 0 0-6.4 6.4c0 4.9 6.4 13.9 6.4 13.9s6.4-9 6.4-13.9A6.4 6.4 0 0 0 12 1.8z"/>')]
+};
+var BASEMAPS = [
+  { id: 'none', name: 'None', note: 'Your layers only' },
+  { id: 'osm', name: 'OpenStreetMap', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', max: 19, attr: '&copy; OpenStreetMap contributors' },
+  { id: 'esriStreet', name: 'World Street Map', note: 'Esri, like your Pro map', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', max: 18, attr: 'Esri, HERE, Garmin, &copy; OpenStreetMap contributors' },
+  { id: 'esriImagery', name: 'Imagery with labels', note: 'Esri', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', labels: 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', max: 19, attr: 'Esri, Maxar, Earthstar Geographics' },
+  { id: 'esriTopo', name: 'Topographic', note: 'Esri', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}', max: 18, attr: 'Esri, HERE, Garmin, USGS, &copy; OpenStreetMap contributors' },
+  { id: 'usgsTopo', name: 'USGS Topo', note: 'US only', url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSTopo/MapServer/tile/{z}/{y}/{x}', max: 16, attr: 'USGS The National Map' },
+  { id: 'usgsImagery', name: 'USGS Imagery Topo', note: 'US only', url: 'https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryTopo/MapServer/tile/{z}/{y}/{x}', max: 16, attr: 'USGS The National Map' },
+  { id: 'carto', name: 'Light gray', note: 'CARTO, quiet background', url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', max: 20, sub: 'abcd', attr: '&copy; OpenStreetMap contributors &copy; CARTO' }
+];
 var store = {
   get: function (k, d) { try { var v = localStorage.getItem('tpm.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set: function (k, v) { try { localStorage.setItem('tpm.' + k, JSON.stringify(v)); return true; } catch (e) { return false; } }
@@ -920,12 +945,15 @@ function shortName(c) { return c.n.replace(/ (County|Parish|Borough|Census Area|
 function fullName(c) { return c.n + ', ' + c.s; }
 
 /* ---------- map ---------- */
+L.Canvas.include({ _updateTriangle: function (layer) {
+  if (!this._drawing || layer._empty()) return;
+  var p = layer._point, ctx = this._ctx, r = Math.max(layer._radius, 1.5);
+  ctx.beginPath(); ctx.moveTo(p.x, p.y - r * 1.1); ctx.lineTo(p.x + r, p.y + r * 0.75); ctx.lineTo(p.x - r, p.y + r * 0.75); ctx.closePath();
+  this._fillStroke(ctx, layer);
+} });
 function buildMap() {
   map = L.map('map', { zoomControl: false, preferCanvas: true, minZoom: 3, maxZoom: 17, zoomSnap: 0.5, attributionControl: !IN_PREVIEW });
   L.control.scale({ position: 'bottomleft' }).addTo(map);
-  if (!IN_PREVIEW) {
-    groups.streets = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, crossOrigin: true, attribution: '&copy; OpenStreetMap contributors' });
-  }
   var Grid = L.GridLayer.extend({
     createTile: function (coords) {
       var c = document.createElement('canvas'), ts = this.getTileSize().x, dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -941,7 +969,7 @@ function buildMap() {
 
   var canvas = L.canvas({ padding: 0.3 });
   groups.route = L.layerGroup(D.route.map(function (r) {
-    return L.polyline(routePts(r), { renderer: canvas, color: css('--accent'), weight: 5, opacity: 0.9, interactive: false });
+    return L.polyline(routePts(r), { renderer: canvas, color: css('--route'), weight: 5, opacity: 0.95, interactive: false });
   }));
   var halo = css('--panel');
   var allDots = [];
@@ -954,13 +982,15 @@ function buildMap() {
     if (k === dotScale) return; dotScale = k;
     for (var i = 0; i < allDots.length; i++) { allDots[i].options.weight = k < 0.7 ? 0.5 : 1; allDots[i].setRadius(allDots[i]._r0 * k); }
   }
-  groups.labs = L.layerGroup(dots(D.labs, css('--lab'), 3.5));
+  var Tri = L.CircleMarker.extend({ _updatePath: function () { this._renderer._updateTriangle(this); } });
+  groups.labs = L.layerGroup(D.labs.map(function (p) { var m = new Tri([p.y, p.x], { renderer: canvas, radius: 5, color: halo, weight: 1, fillColor: css('--lab'), fillOpacity: 1, interactive: false }); m._r0 = 5; allDots.push(m); return m; }));
   groups.caches = L.layerGroup(dots(D.caches.filter(function (c) { return c.cat !== 9; }), css('--cache'), 4.5)
     .concat(dots(D.caches.filter(function (c) { return c.cat === 9; }), css('--special'), 5.5)));
   groups.pois = L.layerGroup(D.pois.map(function (p) {
-    return L.marker([p.y, p.x], { interactive: false, keyboard: false, icon: L.divIcon({ className: '', iconSize: [26, 26], iconAnchor: [13, 26], html: '<div class="poi"><b>' + esc(STOPS[p.stop] ? STOPS[p.stop][1] : '•') + '</b></div>' }) });
+    return L.marker([p.y, p.x], { interactive: false, keyboard: false, icon: L.divIcon({ className: '', iconSize: [24, 24], iconAnchor: [12, 12], html: '<div class="poi">' + (STOPS[p.stop] || STOPS[6])[1] + '</div>' }) });
   }));
-  ['streets', 'counties', 'route', 'labs', 'caches', 'pois'].forEach(function (k) { if (groups[k] && show[k]) groups[k].addTo(map); });
+  if (!IN_PREVIEW) setBasemap(store.get('basemap', 'osm'));
+  ['counties', 'route', 'labs', 'caches', 'pois'].forEach(function (k) { if (groups[k] && show[k]) groups[k].addTo(map); });
 
   var v = store.get('view', null);
   if (v && isFinite(v.lat) && isFinite(v.lng) && isFinite(v.z)) map.setView([v.lat, v.lng], v.z);
@@ -973,6 +1003,27 @@ function buildMap() {
   map.on('zoomend', sizeDots);
   map.on('click', onTap);
   sizeDots(); drawLabels();
+}
+
+/* ---------- basemaps ---------- */
+var baseLayers = [], baseId = 'none';
+function setBasemap(id) {
+  var b = BASEMAPS.filter(function (x) { return x.id === id; })[0] || BASEMAPS[1];
+  baseLayers.forEach(function (l) { map.removeLayer(l); }); baseLayers = []; baseId = b.id; store.set('basemap', b.id);
+  if (!b.url) return;
+  var mk = function (url, cors, attr) {
+    var l = L.tileLayer(url, { maxZoom: 19, maxNativeZoom: b.max, subdomains: b.sub || 'abc', crossOrigin: cors ? 'anonymous' : undefined, attribution: attr || '', pane: 'tilePane' });
+    var ok = false, bad = 0;
+    l.on('tileload', function () { ok = true; });
+    l.on('tileerror', function () {           // a few map servers refuse cross-origin requests; retry them the plain way
+      if (cors && !ok && ++bad === 6 && navigator.onLine !== false && baseId === b.id) {
+        var i = baseLayers.indexOf(l); map.removeLayer(l); var n = mk(url, false, attr); baseLayers[i] = n; n.addTo(map); if (b.labels && i === 0) n.bringToBack();
+      }
+    });
+    return l;
+  };
+  baseLayers.push(mk(b.url, true, b.attr).addTo(map));
+  if (b.labels) baseLayers.push(mk(b.labels, true, '').addTo(map));
 }
 
 /* ---------- tapping ---------- */
@@ -1045,15 +1096,19 @@ function showLayers() {
     ['names', 'County names', 'Shown when zoomed in', ''],
     ['route', 'Planned route', D.route.length + ' segments', '<span class="ln"></span>'],
     ['caches', 'Planned geocaches', D.caches.length.toLocaleString() + ' · blue county, red special', '<span class="pt" style="background:var(--cache)"></span>'],
-    ['labs', 'Lab caches', D.labs.length.toLocaleString() + ' stops', '<span class="pt" style="background:var(--lab)"></span>'],
-    ['pois', 'Points of interest', D.pois.length.toLocaleString() + ' in this data', '']
+    ['labs', 'Lab caches', D.labs.length.toLocaleString() + ' stops', '<span class="tri"></span>'],
+    ['pois', 'Points of interest', D.pois.length.toLocaleString() + ' in this data', STOPS[3][1]]
   ];
-  if (groups.streets) items.push(['streets', 'Street map', 'Needs a connection', '']);
   var h = head('Map', 'Layers') + '<ul class="toggles">';
   items.forEach(function (it) {
     h += '<li><label for="lyr-' + it[0] + '"><input type="checkbox" id="lyr-' + it[0] + '" data-layer="' + it[0] + '"' + (show[it[0]] ? ' checked' : '') + '><span class="sw">' + it[3] + '</span><span>' + esc(it[1]) + '<small>' + esc(it[2]) + '</small></span></label></li>';
   });
   h += '</ul>';
+  if (!IN_PREVIEW) {
+    h += '<h3 class="sub">Basemap</h3><ul class="bases">';
+    BASEMAPS.forEach(function (b) { h += '<li><label for="base-' + b.id + '"><input type="radio" name="base" id="base-' + b.id + '" data-base="' + b.id + '"' + (b.id === baseId ? ' checked' : '') + '><span>' + esc(b.name) + (b.note ? ' <small>· ' + esc(b.note) + '</small>' : '') + '</span></label></li>'; });
+    h += '</ul><p class="note">Basemaps need a signal. Areas you have already looked at stay available without one.</p>';
+  }
   if (!IN_PREVIEW) h += '<div class="row"><button class="btn" type="button" data-act="pick">Load a data file</button></div><p class="note">' + (D.built ? 'Trip data from ' + esc(D.built) + '. ' : '') + 'Loading a file replaces only the layers that file contains. County changes made on this phone are kept.</p>';
   openSheet(h);
 }
@@ -1138,6 +1193,7 @@ function wire() {
     else if (act === 'copy') copyText(b.getAttribute('data-text'), 'Coordinates copied');
   });
   sheet.addEventListener('change', function (ev) {
+    var bm = ev.target.getAttribute && ev.target.getAttribute('data-base'); if (bm) { setBasemap(bm); return; }
     var k = ev.target.getAttribute && ev.target.getAttribute('data-layer'); if (!k) return;
     show[k] = ev.target.checked; store.set('show', show);
     if (groups[k]) { if (show[k]) groups[k].addTo(map); else map.removeLayer(groups[k]); }
