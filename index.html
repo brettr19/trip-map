@@ -15,6 +15,10 @@
   --notfound: #e06464;
   --notfound-fill: rgba(242, 112, 112, 0.42);
   --route: #f000c8;
+  --hroute: #7b2cbf;
+  --trail: #8c510a;
+  --fcache: #ffc21a;
+  --fcache-edge: #6b5200;
   --county-line: #7d867f;
   --county-edit: #2a2f2c;
   --label: #3a443e;
@@ -30,7 +34,7 @@
   :root:not([data-theme="light"]) {
     --bg: #171c19; --panel: #222925; --panel-2: #2b332e; --fg: #e8eee9; --muted: #9eaaa2; --line: #3a443e;
     --accent: #e052d0; --accent-fg: #1a0f19;
-    --found: #8fcf5c; --found-fill: rgba(130, 205, 90, 0.38); --notfound: #f08a90; --notfound-fill: rgba(242, 112, 112, 0.38); --route: #ff3fd6;
+    --found: #8fcf5c; --found-fill: rgba(130, 205, 90, 0.38); --notfound: #f08a90; --notfound-fill: rgba(242, 112, 112, 0.38); --route: #ff3fd6; --hroute: #b580ff; --trail: #d9a35c; --fcache: #ffd24d; --fcache-edge: #2a2000;
     --county-line: #66706a; --county-edit: #f2f5f2; --label: #c9d3cc; --label-halo: rgba(23, 28, 25, 0.85);
     --cache: #6fa0ff; --special: #ff6b6b; --lab: #6fd34f; --shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
     color-scheme: dark;
@@ -39,7 +43,7 @@
 :root[data-theme="dark"] {
   --bg: #171c19; --panel: #222925; --panel-2: #2b332e; --fg: #e8eee9; --muted: #9eaaa2; --line: #3a443e;
   --accent: #e052d0; --accent-fg: #1a0f19;
-  --found: #8fcf5c; --found-fill: rgba(130, 205, 90, 0.38); --notfound: #f08a90; --notfound-fill: rgba(242, 112, 112, 0.38); --route: #ff3fd6;
+  --found: #8fcf5c; --found-fill: rgba(130, 205, 90, 0.38); --notfound: #f08a90; --notfound-fill: rgba(242, 112, 112, 0.38); --route: #ff3fd6; --hroute: #b580ff; --trail: #d9a35c; --fcache: #ffd24d; --fcache-edge: #2a2000;
   --county-line: #66706a; --county-edit: #f2f5f2; --label: #c9d3cc; --label-halo: rgba(23, 28, 25, 0.85);
   --cache: #6fa0ff; --special: #ff6b6b; --lab: #6fd34f; --shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
   color-scheme: dark;
@@ -708,7 +712,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
 .fab[aria-pressed="true"] svg { stroke: var(--accent-fg); }
 .badge { position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--accent); color: var(--accent-fg); font-size: 12px; font-weight: 700; line-height: 20px; text-align: center; font-variant-numeric: tabular-nums; }
 
-.tally { position: absolute; left: 16px; top: 12px; z-index: 500; max-width: calc(100% - 96px); background: var(--panel); box-shadow: var(--shadow); border-radius: 12px; padding: 8px 12px; display: flex; gap: 12px; align-items: baseline; font-variant-numeric: tabular-nums; }
+.topleft { position: absolute; left: 16px; top: 12px; z-index: 500; max-width: calc(100% - 96px); display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.mapswitch { display: inline-flex; background: var(--panel); box-shadow: var(--shadow); border-radius: 12px; padding: 4px; gap: 4px; }
+.mapswitch button { border: 0; background: none; border-radius: 9px; min-height: 36px; padding: 0 14px; font-weight: 600; color: var(--muted); }
+.mapswitch button[aria-pressed="true"] { background: var(--fg); color: var(--panel); }
+.tally { max-width: 100%; background: var(--panel); box-shadow: var(--shadow); border-radius: 12px; padding: 8px 12px; display: flex; gap: 12px; align-items: baseline; font-variant-numeric: tabular-nums; }
 .tally b { font-size: 17px; }
 .tally span { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
 .tally .dot { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; }
@@ -746,6 +754,8 @@ dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .toggles .sw { flex: none; width: 26px; display: grid; place-items: center; }
 .toggles small { display: block; color: var(--muted); }
 .sw .ln { width: 24px; height: 5px; border-radius: 3px; background: var(--route); }
+.sw .hl { width: 24px; height: 4px; border-radius: 2px; background: var(--hroute); }
+.sw .tl { width: 24px; height: 0; border-top: 3px dashed var(--trail); }
 .sw .tri { width: 12px; height: 11px; background: var(--lab); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
 .sw svg, .poi svg { width: 24px; height: 24px; display: block; }
 .poi { filter: drop-shadow(0 0 1px #ffffff) drop-shadow(0 0 1px #ffffff) drop-shadow(0 1px 1px rgba(0,0,0,.35)); }
@@ -771,7 +781,13 @@ textarea { width: 100%; min-height: 120px; margin-top: 12px; font: 12px/1.4 var(
 <div id="app">
   <div id="map" aria-label="Trip map"></div>
 
-  <div class="tally" id="tally" hidden></div>
+  <div class="topleft">
+    <div class="mapswitch" role="group" aria-label="Map">
+      <button type="button" id="mPlan" data-mode="plan" aria-pressed="true">Planning</button>
+      <button type="button" id="mHist" data-mode="hist" aria-pressed="false">History</button>
+    </div>
+    <div class="tally" id="tally" hidden></div>
+  </div>
 
   <div class="fabs">
     <button class="fab" id="btnLayers" type="button" aria-label="Layers" title="Layers">
@@ -806,6 +822,11 @@ var STOPS = {
   4: ['Park/Garden/Viewpoint', SVG('<path fill="#1f8a3a" d="M12 1.5 17 8.6h-2.6l4.4 5.7h-3.6L20 20H4l4.8-5.7H5.2l4.4-5.7H7z"/><rect x="10.8" y="20" width="2.4" height="3" fill="#1f8a3a"/>')],
   5: ['Restaurant', SVG('<g fill="#ee8a00"><path d="M5.6 2.5h1.3v5.6h1V2.5h1.3v5.6h1V2.5h1.3v6.4a2.6 2.6 0 0 1-2 2.5V22H7.6V11.4a2.6 2.6 0 0 1-2-2.5z"/><path d="M14.5 22V2.5c3.4.8 4.4 5.2 4.2 10.4h-2.2V22z"/></g>')],
   6: ['Other POI', SVG('<path fill="#1565c0" d="M12 1.8a6.4 6.4 0 0 0-6.4 6.4c0 4.9 6.4 13.9 6.4 13.9s6.4-9 6.4-13.9A6.4 6.4 0 0 0 12 1.8z"/>')]
+};
+var HICONS = {
+  star: SVG('<path fill="#f2b705" stroke="#7a5a00" stroke-width="1" d="M12 2.2l2.9 6.2 6.7.8-5 4.6 1.4 6.7L12 17.1l-6 3.4 1.4-6.7-5-4.6 6.7-.8z"/>'),
+  starOpen: SVG('<path fill="#ffffff" stroke="#b08400" stroke-width="2" d="M12 2.2l2.9 6.2 6.7.8-5 4.6 1.4 6.7L12 17.1l-6 3.4 1.4-6.7-5-4.6 6.7-.8z"/>'),
+  note: SVG('<path fill="#1d4e89" d="M9 3.5 20 1.8v13.6a3.2 2.6 0 1 1-2-2.4V6.2l-7 1.2v10a3.2 2.6 0 1 1-2-2.4z"/>')
 };
 var BASEMAPS = [
   { id: 'none', name: 'None', note: 'Your layers only' },
@@ -878,7 +899,21 @@ function countyAt(lat, lon) {
 /* ---------- state ---------- */
 var D = null, map = null, countyLayer = null, labelPane = null;
 var edits = store.get('edits', {});            // { id: { g, was, t, done } }  — changes made on this phone
-var show = Object.assign({ counties: true, names: true, caches: true, labs: true, route: true, pois: true, streets: true }, store.get('show', {}));
+var show = Object.assign({ counties: true, names: true, caches: true, labs: true, route: true, pois: true,
+  hroutes: true, htrails: true, hfound: true, hbrew: true, huntappd: true, hguster: true, hhikes: true, hparks: true }, store.get('show', {}));
+var mode = store.get('mode', 'plan') === 'hist' ? 'hist' : 'plan';
+var MODE_LAYERS = { plan: ['route', 'labs', 'caches', 'pois'], hist: ['hroutes', 'htrails', 'hfound', 'hhikes', 'hparks', 'huntappd', 'hbrew', 'hguster'] };
+var POINT_LAYERS = { plan: ['pois', 'caches', 'labs'], hist: ['hguster', 'hbrew', 'huntappd', 'hhikes', 'hparks', 'hfound'] };
+var LINE_LAYERS = { plan: [], hist: ['htrails', 'hroutes'] };
+function applyLayers() {
+  ['plan', 'hist'].forEach(function (m) { MODE_LAYERS[m].forEach(function (k) { var g = groups[k]; if (!g) return; var on = m === mode && show[k]; if (on && !map.hasLayer(g)) g.addTo(map); else if (!on && map.hasLayer(g)) map.removeLayer(g); }); });
+  if (groups.counties) { if (show.counties && !map.hasLayer(groups.counties)) groups.counties.addTo(map); else if (!show.counties && map.hasLayer(groups.counties)) map.removeLayer(groups.counties); }
+}
+function setMode(m) {
+  mode = m; store.set('mode', m); closeSheet();
+  $('mPlan').setAttribute('aria-pressed', m === 'plan'); $('mHist').setAttribute('aria-pressed', m === 'hist');
+  if (map) applyLayers();
+}
 var groups = {};
 function eff(c) { var e = edits[c.id]; return e ? e.g : c.g; }
 function pendingCount() { var n = 0; for (var k in edits) if (!edits[k].done) n++; return n; }
@@ -951,6 +986,27 @@ L.Canvas.include({ _updateTriangle: function (layer) {
   ctx.beginPath(); ctx.moveTo(p.x, p.y - r * 1.1); ctx.lineTo(p.x + r, p.y + r * 0.75); ctx.lineTo(p.x - r, p.y + r * 0.75); ctx.closePath();
   this._fillStroke(ctx, layer);
 } });
+var ICON_IMG = {};
+function loadIcons() {
+  var all = { s1: STOPS[1][1], s2: STOPS[2][1], s3: STOPS[3][1], s4: STOPS[4][1], s5: STOPS[5][1], s6: STOPS[6][1], star: HICONS.star, starOpen: HICONS.starOpen, note: HICONS.note };
+  return Promise.all(Object.keys(all).map(function (k) {
+    return new Promise(function (res) {
+      var im = new Image(); im.onload = im.onerror = function () { res(); };
+      im.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(all[k].replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" '));
+      ICON_IMG[k] = im;
+    });
+  }));
+}
+L.Canvas.include({ _updateIcon: function (layer) {
+  if (!this._drawing || layer._empty()) return;
+  var p = layer._point, ctx = this._ctx, sz = layer._radius * 2, im = layer.options.img;
+  if (!im || !im.complete || !im.naturalWidth) return;
+  ctx.save(); if (layer.options.dim) ctx.globalAlpha = 0.45;
+  ctx.shadowColor = 'rgba(255,255,255,0.95)'; ctx.shadowBlur = 3;
+  ctx.drawImage(im, p.x - sz / 2, p.y - sz / 2, sz, sz); ctx.shadowBlur = 0; ctx.drawImage(im, p.x - sz / 2, p.y - sz / 2, sz, sz);
+  ctx.restore();
+} });
+var IconMarker = L.CircleMarker.extend({ _updatePath: function () { this._renderer._updateIcon(this); } });
 function buildMap() {
   map = L.map('map', { zoomControl: false, preferCanvas: true, minZoom: 3, maxZoom: 17, zoomSnap: 0.5, attributionControl: !IN_PREVIEW });
   L.control.scale({ position: 'bottomleft' }).addTo(map);
@@ -967,7 +1023,7 @@ function buildMap() {
   groups.counties = countyLayer;
   labelPane = map.createPane('names'); labelPane.style.zIndex = 620; labelPane.style.pointerEvents = 'none'; labelPane.classList.add('leaflet-zoom-hide');
 
-  var canvas = L.canvas({ padding: 0.3 });
+  var canvas = L.canvas({ padding: 0.3, tolerance: 8 });
   groups.route = L.layerGroup(D.route.map(function (r) {
     return L.polyline(routePts(r), { renderer: canvas, color: css('--route'), weight: 5, opacity: 0.95, interactive: false });
   }));
@@ -980,23 +1036,37 @@ function buildMap() {
   function sizeDots() {
     var z = map.getZoom(), k = z < 6 ? 0.45 : z < 8 ? 0.65 : z < 10 ? 0.85 : z < 13 ? 1 : 1.3;
     if (k === dotScale) return; dotScale = k;
-    for (var i = 0; i < allDots.length; i++) { allDots[i].options.weight = k < 0.7 ? 0.5 : 1; allDots[i].setRadius(allDots[i]._r0 * k); }
+    for (var i = 0; i < allDots.length; i++) { var d = allDots[i]; if (!d._icon) d.options.weight = k < 0.7 ? 0.5 : 1; d.setRadius(d._r0 * (d._icon ? Math.max(k, 0.6) : k)); }
   }
   var Tri = L.CircleMarker.extend({ _updatePath: function () { this._renderer._updateTriangle(this); } });
   groups.labs = L.layerGroup(D.labs.map(function (p) { var m = new Tri([p.y, p.x], { renderer: canvas, radius: 5, color: halo, weight: 1, fillColor: css('--lab'), fillOpacity: 1, interactive: false }); m._r0 = 5; allDots.push(m); return m; }));
   groups.caches = L.layerGroup(dots(D.caches.filter(function (c) { return c.cat !== 9; }), css('--cache'), 4.5)
     .concat(dots(D.caches.filter(function (c) { return c.cat === 9; }), css('--special'), 5.5)));
-  groups.pois = L.layerGroup(D.pois.map(function (p) {
-    return L.marker([p.y, p.x], { interactive: false, keyboard: false, icon: L.divIcon({ className: '', iconSize: [24, 24], iconAnchor: [12, 12], html: '<div class="poi">' + (STOPS[p.stop] || STOPS[6])[1] + '</div>' }) });
-  }));
+  function icons(arr, key, dimFn) {
+    return arr.map(function (p) { var m = new IconMarker([p.y, p.x], { renderer: canvas, radius: 12, img: ICON_IMG[typeof key === 'function' ? key(p) : key], dim: dimFn ? dimFn(p) : false, interactive: false }); m._r0 = 12; m._icon = true; allDots.push(m); return m; });
+  }
+  groups.pois = L.layerGroup(icons(D.pois, function (p) { return 's' + (STOPS[p.stop] ? p.stop : 6); }));
+  // ---- history map
+  var H = D.hist;
+  var lines = function (arr, color, w, dash) { return arr.map(function (r) { var l = L.polyline(routePts(r), { renderer: canvas, color: color, weight: w, opacity: 0.9, dashArray: dash, interactive: false }); l._f = r; return l; }); };
+  groups.hroutes = L.layerGroup(lines(H.hroutes, css('--hroute'), 3.5));
+  groups.htrails = L.layerGroup(lines(H.htrails, css('--trail'), 3, '6 4'));
+  var fc = css('--fcache'), fe = css('--fcache-edge');
+  groups.hfound = L.layerGroup(H.hfound.map(function (p) { var m = L.circleMarker([p.y, p.x], { renderer: canvas, radius: 3.5, color: fe, weight: 1, fillColor: fc, fillOpacity: 1, interactive: false }); m._r0 = 3.5; allDots.push(m); return m; }));
+  groups.hbrew = L.layerGroup(icons(H.hbrew, 's1', function (p) { return !!p.closed; }));
+  groups.huntappd = L.layerGroup(icons(H.huntappd, function (p) { return p.visited ? 'star' : 'starOpen'; }));
+  groups.hguster = L.layerGroup(icons(H.hguster, 'note'));
+  groups.hhikes = L.layerGroup(icons(H.hhikes, 's2'));
+  groups.hparks = L.layerGroup(icons(H.hparks, 's4'));
   if (!IN_PREVIEW) setBasemap(store.get('basemap', 'osm'));
-  ['counties', 'route', 'labs', 'caches', 'pois'].forEach(function (k) { if (groups[k] && show[k]) groups[k].addTo(map); });
+  applyLayers();
 
   var v = store.get('view', null);
   if (v && isFinite(v.lat) && isFinite(v.lng) && isFinite(v.z)) map.setView([v.lat, v.lng], v.z);
   else {
     var pts = []; D.route.forEach(function (r) { pts = pts.concat(routePts(r)); });
     if (!pts.length) D.caches.forEach(function (c) { pts.push([c.y, c.x]); });
+    if (!pts.length) D.hist.hfound.forEach(function (c) { pts.push([c.y, c.x]); });
     if (pts.length) map.fitBounds(L.latLngBounds(pts), { padding: [20, 20] }); else map.setView([41, -80], 6);
   }
   map.on('moveend', function () { var c = map.getCenter(); store.set('view', { lat: c.lat, lng: c.lng, z: map.getZoom() }); drawLabels(); });
@@ -1027,20 +1097,45 @@ function setBasemap(id) {
 }
 
 /* ---------- tapping ---------- */
+var KIND = { pois: 'Point of interest', caches: 'Planned cache', labs: 'Lab cache', hfound: 'Found cache', hbrew: 'Brewery visited', huntappd: 'Untappd top brewery', hguster: 'Guster show', hhikes: 'Hike completed', hparks: 'Park or viewpoint', hroutes: 'Trip route', htrails: 'Trail hiked' };
 function onTap(ev) {
-  var best = null, bd = 24 * 24, cp = ev.containerPoint;
+  var hits = [], cp = ev.containerPoint, R2 = 22 * 22;
   function scan(arr, kind) {
     for (var i = 0; i < arr.length; i++) {
       var p = map.latLngToContainerPoint([arr[i].y, arr[i].x]), dx = p.x - cp.x, dy = p.y - cp.y, d = dx * dx + dy * dy;
-      if (d < bd) { bd = d; best = { kind: kind, f: arr[i] }; }
+      if (d < R2) hits.push({ kind: kind, f: arr[i], d: d });
     }
   }
-  if (show.pois) scan(D.pois, 'poi');
-  if (show.caches) scan(D.caches, 'cache');
-  if (show.labs) scan(D.labs, 'lab');
-  if (best) return showPoint(best.kind, best.f);
+  var src = { pois: D.pois, caches: D.caches, labs: D.labs };
+  POINT_LAYERS[mode].forEach(function (k) { if (show[k]) scan(src[k] || D.hist[k], k); });
+  hits.sort(function (a, b) { return a.d - b.d; });
+  var lp = map.latLngToLayerPoint(ev.latlng), seen = {};
+  LINE_LAYERS[mode].forEach(function (key) {
+    var g = groups[key]; if (!show[key] || !g) return;
+    g.eachLayer(function (l) {
+      if (!l._parts || !l._containsPoint(lp)) return;
+      var f = l._f, id = key + '|' + (f.trip || f.name || '') + '|' + (f.date || '');
+      if (!seen[id]) { seen[id] = 1; hits.push({ kind: key, f: f, line: true }); }
+    });
+  });
+  if (hits.length === 1) return openHit(hits[0]);
+  if (hits.length > 1) return chooseHit(hits.slice(0, 15));
   if (show.counties) { var c = countyAt(ev.latlng.lat, ev.latlng.lng); if (c) return showCounty(c); }
   closeSheet();
+}
+function openHit(h) { if (h.line) showLine(h.kind, h.f); else showPoint(h.kind, h.f); }
+function hitTitle(h) {
+  var f = h.f, t = f.name || f.trip || f.code || 'Unnamed';
+  if (h.kind === 'hroutes' && f.date) t += ' · ' + f.date;
+  if (h.kind === 'hguster' && f.date) t += ' · ' + f.date.slice(0, 4);
+  if (h.kind === 'pois' && STOPS[f.stop]) return [STOPS[f.stop][0], t];
+  return [KIND[h.kind] || '', t];
+}
+function chooseHit(hits) {
+  sheet._hits = hits;
+  var h = head('Several things here', 'Choose one') + '<ul class="changes">';
+  hits.forEach(function (x, i) { var t = hitTitle(x); h += '<li><button class="link" type="button" data-act="hit" data-i="' + i + '" style="text-align:left;text-decoration:none;color:var(--fg)">' + esc(t[1]) + '</button><span>' + esc(t[0]) + '</span></li>'; });
+  openSheet(h + '</ul>');
 }
 
 /* ---------- sheet ---------- */
@@ -1065,7 +1160,22 @@ function showCounty(c) {
 function row(k, v) { return (v == null || v === '') ? '' : '<dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd>'; }
 function showPoint(kind, f) {
   var h = '', c = countyAt(f.y, f.x);
-  if (kind === 'cache') {
+  var fmt = function (d) { if (!d) return null; var p = d.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }); };
+  var place = function (f) { return [f.city, f.st].filter(Boolean).join(', ') || null; };
+  if (kind === 'caches') kind = 'cache'; else if (kind === 'labs') kind = 'lab';
+  if (kind === 'hfound') {
+    h = head('Found cache · ' + f.code, f.name || f.code) + '<dl>' + row('Found', fmt(f.fd)) + row('Type', f.type) + row('Difficulty / terrain', (f.d != null ? f.d : '?') + ' / ' + (f.t != null ? f.t : '?')) + row('Size', f.size) + row('Favorites', f.fav) + (f.arch ? row('Status', 'Archived') : '') + '</dl>';
+  } else if (kind === 'hbrew') {
+    h = head(f.closed ? 'Brewery visited · now closed' : 'Brewery visited', f.name) + '<dl>' + row('Where', place(f)) + row('Address', f.addr) + row('Comment', f.note) + '</dl>';
+  } else if (kind === 'huntappd') {
+    h = head('Untappd top brewery' + (f.rank ? ' · #' + f.rank : ''), f.name) + '<dl>' + row('Visited', f.visited ? 'Yes' : 'Not yet') + row('Type', f.kind) + row('Part of', f.sub) + '</dl>';
+  } else if (kind === 'hguster') {
+    h = head('Guster show', f.name) + '<dl>' + row('Date', fmt(f.date)) + row('Where', place(f)) + row('Note', f.note) + '</dl>';
+  } else if (kind === 'hhikes') {
+    h = head('Hike completed', f.name) + '<dl>' + row('Length', f.mi != null ? f.mi + ' mi' : null) + row('Trail type', f.kind) + row('AllTrails rating', f.rt) + '</dl>';
+  } else if (kind === 'hparks') {
+    h = head('Park, garden or viewpoint', f.name) + '<dl>' + row('Google rating', f.rt) + '</dl>';
+  } else if (kind === 'cache') {
     h = head((f.cat === 9 ? 'Special cache' : 'County cache') + ' · ' + f.code, f.name) + '<dl>' +
       row('Type', f.type) + row('Difficulty / terrain', (f.d != null ? f.d : '?') + ' / ' + (f.t != null ? f.t : '?')) + row('Size', f.size) + row('Owner', f.owner) +
       row('Favorites', f.fav) + row('Hint', f.hint) + row('My note', f.note) + (f.avail === 0 ? row('Status', 'Disabled') : '') + '</dl>';
@@ -1082,6 +1192,20 @@ function showPoint(kind, f) {
   sheet._point = { kind: kind, f: f };
   openSheet(h);
 }
+function showLine(kind, f) {
+  var h, fmt = function (d) { if (!d) return null; var p = d.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }); };
+  if (kind === 'hroutes') {
+    var same = D.hist.hroutes.filter(function (r) { return f.trip && r.trip === f.trip; }), days = {};
+    same.forEach(function (r) { if (r.date) days[r.date] = 1; });
+    var dl = Object.keys(days).sort();
+    h = head('Trip route', f.trip || 'Unnamed trip') + '<dl>' + row('This day', fmt(f.date)) + row('Distance', f.mi ? Math.round(f.mi).toLocaleString() + ' mi' : null) +
+      (dl.length > 1 ? row('Trip dates', fmt(dl[0]) + ' to ' + fmt(dl[dl.length - 1])) : '') + row('Notes', f.notes) + '</dl>';
+  } else {
+    h = head('Trail hiked', f.name || 'Trail') + '<dl>' + row('Distance', f.mi != null ? f.mi + ' mi' : null) + row('AllTrails rating', f.rt) + row('Notes', f.notes) + '</dl>';
+    if (f.url && /^https?:\/\//i.test(f.url)) h += '<div class="row"><a class="btn" href="' + esc(f.url) + '" target="_blank" rel="noopener">Open in AllTrails</a></div>';
+  }
+  sheet._point = null; openSheet(h);
+}
 function byId(id) { for (var i = 0; i < D.counties.length; i++) if (D.counties[i].id === id) return D.counties[i]; return null; }
 function setStatus(c, g) {
   var e = edits[c.id];
@@ -1091,15 +1215,30 @@ function setStatus(c, g) {
   redrawCounties(); refreshChrome();
 }
 function showLayers() {
+  var Hh = D.hist, n = function (a) { return a.length.toLocaleString(); };
+  var visited = Hh.huntappd.filter(function (b) { return b.visited; }).length, closed = Hh.hbrew.filter(function (b) { return b.closed; }).length;
+  var trips = {}; Hh.hroutes.forEach(function (r) { if (r.trip) trips[r.trip] = 1; });
   var items = [
-    ['counties', 'Counties', 'Found, Not Found and Hidden', '<span class="bx"></span>'],
-    ['names', 'County names', 'Shown when zoomed in', ''],
+    ['counties', 'Counties', 'Found, Not Found and Hidden · both maps', '<span class="bx"></span>'],
+    ['names', 'County names', 'Shown when zoomed in', '']
+  ];
+  if (mode === 'hist') items = items.concat([
+    ['hroutes', 'Trip routes', Object.keys(trips).length + ' trips', '<span class="hl"></span>'],
+    ['htrails', 'Trails hiked', n(Hh.htrails) + ' trails', '<span class="tl"></span>'],
+    ['hfound', 'Geocaches found', n(Hh.hfound), '<span class="pt" style="background:var(--fcache);border-color:var(--fcache-edge)"></span>'],
+    ['hbrew', 'Breweries visited', n(Hh.hbrew) + (closed ? ' · ' + closed + ' now closed, shown faded' : ''), STOPS[1][1]],
+    ['huntappd', 'Untappd top breweries', visited + ' of ' + n(Hh.huntappd) + ' visited · filled star = visited', HICONS.star],
+    ['hguster', 'Guster shows', n(Hh.hguster) + ' venues', HICONS.note],
+    ['hhikes', 'Hikes completed', n(Hh.hhikes), STOPS[2][1]],
+    ['hparks', 'Parks, gardens and viewpoints', n(Hh.hparks), STOPS[4][1]]
+  ]);
+  else items = items.concat([
     ['route', 'Planned route', D.route.length + ' segments', '<span class="ln"></span>'],
     ['caches', 'Planned geocaches', D.caches.length.toLocaleString() + ' · blue county, red special', '<span class="pt" style="background:var(--cache)"></span>'],
     ['labs', 'Lab caches', D.labs.length.toLocaleString() + ' stops', '<span class="tri"></span>'],
     ['pois', 'Points of interest', D.pois.length.toLocaleString() + ' in this data', STOPS[3][1]]
-  ];
-  var h = head('Map', 'Layers') + '<ul class="toggles">';
+  ]);
+  var h = head(mode === 'hist' ? 'History map' : 'Planning map', 'Layers') + '<ul class="toggles">';
   items.forEach(function (it) {
     h += '<li><label for="lyr-' + it[0] + '"><input type="checkbox" id="lyr-' + it[0] + '" data-layer="' + it[0] + '"' + (show[it[0]] ? ' checked' : '') + '><span class="sw">' + it[3] + '</span><span>' + esc(it[1]) + '<small>' + esc(it[2]) + '</small></span></label></li>';
   });
@@ -1189,6 +1328,7 @@ function wire() {
     else if (act === 'save') saveCsv(false);
     else if (act === 'saveall') saveCsv(true);
     else if (act === 'pick') $('filePick').click();
+    else if (act === 'hit' && sheet._hits) openHit(sheet._hits[+b.getAttribute('data-i')]);
     else if (act === 'copycsv') copyText(csvText(changeList()), 'Copied');
     else if (act === 'copy') copyText(b.getAttribute('data-text'), 'Coordinates copied');
   });
@@ -1196,10 +1336,12 @@ function wire() {
     var bm = ev.target.getAttribute && ev.target.getAttribute('data-base'); if (bm) { setBasemap(bm); return; }
     var k = ev.target.getAttribute && ev.target.getAttribute('data-layer'); if (!k) return;
     show[k] = ev.target.checked; store.set('show', show);
-    if (groups[k]) { if (show[k]) groups[k].addTo(map); else map.removeLayer(groups[k]); }
+    applyLayers();
     drawLabels();
   });
   $('btnLayers').addEventListener('click', showLayers);
+  $('mPlan').addEventListener('click', function () { setMode('plan'); });
+  $('mHist').addEventListener('click', function () { setMode('hist'); });
   $('btnExport').addEventListener('click', showExport);
   var me = null, watch = null, first = true, loc = $('btnLocate');
   if (!IN_PREVIEW && navigator.geolocation) {
@@ -1222,7 +1364,8 @@ function wire() {
 }
 
 /* ---------- data on this phone ---------- */
-var LAYERS = ['counties', 'caches', 'labs', 'pois', 'route', 'status', 'built'];
+var HKEYS = ['hroutes', 'htrails', 'hfound', 'hbrew', 'huntappd', 'hguster', 'hhikes', 'hparks'];
+var LAYERS = ['counties', 'caches', 'labs', 'pois', 'route', 'status', 'built'].concat(HKEYS);
 function idb() {
   return new Promise(function (res, rej) {
     var q = indexedDB.open('tpm', 1);
@@ -1282,7 +1425,7 @@ function fromGeoJSON(gj) {            // a layer exported from ArcGIS Pro with F
   }
   throw new Error('This point layer was not recognized. Expected planned geocaches, lab caches or points of interest.');
 }
-var NAMES = { counties: 'counties', caches: 'geocaches', labs: 'lab cache stops', pois: 'points of interest', route: 'route segments', status: 'county statuses' };
+var NAMES = { counties: 'counties', caches: 'planned geocaches', labs: 'lab cache stops', pois: 'points of interest', route: 'route segments', status: 'county statuses', hroutes: 'trip route segments', htrails: 'trails', hfound: 'found caches', hbrew: 'breweries', huntappd: 'Untappd breweries', hguster: 'Guster shows', hhikes: 'hikes', hparks: 'parks' };
 function importFile(file) {
   if (!file) return;
   if (file.size > 60 * 1024 * 1024) { toast('That file is too large for a phone (over 60 MB).'); return; }
@@ -1307,14 +1450,16 @@ function showWelcome() {
 }
 
 /* ---------- boot ---------- */
-function start(data) {
-  D = { counties: data.counties || [], caches: data.caches || [], labs: data.labs || [], pois: data.pois || [], route: data.route || [], built: data.built || '' };
+function start(data) { loadIcons().then(function () { start2(data); }); }
+function start2(data) {
+  D = { counties: data.counties || [], caches: data.caches || [], labs: data.labs || [], pois: data.pois || [], route: data.route || [], built: data.built || '', hist: {} };
+  HKEYS.forEach(function (k) { D.hist[k] = data[k] || []; });
   var st = data.status || null;
   D.counties.forEach(function (c) { prepCounty(c); if (st && st[c.id] != null) c.g = +st[c.id]; });
   for (var k in edits) { var c = byId(k); if (c && edits[k].g === c.g) delete edits[k]; }
-  buildMap(); refreshChrome(); $('loading').hidden = true;
+  setMode(mode); buildMap(); if (location.hostname === 'localhost') window.__tpm = { map: map, D: D }; refreshChrome(); $('loading').hidden = true;
   var flash = store.get('flash', null); if (flash) { store.set('flash', null); toast(flash); }
-  if (!IN_PREVIEW && !D.counties.length && !D.caches.length && !D.route.length) showWelcome();
+  if (!IN_PREVIEW && !D.counties.length && !D.caches.length && !D.route.length && !D.hist.hfound.length) showWelcome();
 }
 function boot() {
   wire();
