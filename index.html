@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Trip Map"><meta name="robots" content="noindex"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="apple-touch-icon.png"><link rel="icon" href="icon-192.png"><style>body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style></head><body><title>Trip Planning Map</title>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Geocations"><meta name="robots" content="noindex"><link rel="manifest" href="manifest.webmanifest"><link rel="apple-touch-icon" href="apple-touch-icon.png"><link rel="icon" href="icon-192.png"><style>body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style></head><body><title>Geocations</title>
 <style>
 /* Layout: one full-screen map; floating controls top-right; details slide up from the bottom edge. */
 :root {
@@ -752,6 +752,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 .daytabs button[aria-selected="true"] { background: var(--fg); color: var(--panel); border-color: var(--fg); }
 .dayrow { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
 .dayrow label, .form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); flex: 1 1 140px; }
+.form label { flex: none; }
 .dayrow input, .form input, .form textarea, .ors input { font: inherit; font-size: 16px; color: var(--fg); background: var(--panel); border: 2px solid var(--line); border-radius: 10px; min-height: 44px; padding: 0 10px; }
 .form textarea { padding: 8px 10px; min-height: 70px; }
 .form { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
@@ -1620,7 +1621,7 @@ function importFile(file) {
   });
 }
 function showWelcome() {
-  openSheet(head('Trip Planning Map', 'Load your trip data') + '<p class="note">This phone has no map data yet. Choose the trip data file you saved to Files or iCloud Drive. It stays on this phone and is never uploaded.</p><div class="row"><button class="btn primary" type="button" data-act="pick">Choose data file</button></div>');
+  openSheet(head('Geocations', 'Load your trip data') + '<p class="note">This phone has no map data yet. Choose the trip data file you saved to Files or iCloud Drive. It stays on this phone and is never uploaded.</p><div class="row"><button class="btn primary" type="button" data-act="pick">Choose data file</button></div>');
 }
 
 /* ---------- itinerary ---------- */
