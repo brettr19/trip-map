@@ -809,6 +809,8 @@ body.drag-stop, body.drag-stop * { -webkit-user-select: none !important; user-se
 .plan li.leg select.mode { border: 0; background: var(--panel-2); min-height: 0; height: 22px; line-height: 22px; padding: 0 2px 0 6px; border-radius: 6px; font-weight: 600; font-size: 12px; color: var(--muted); vertical-align: middle; }
 .plan li.leg .what { padding-top: 2px; padding-bottom: 2px; }
 .plan .what .wx { color: var(--muted); font-size: 13px; margin-top: 1px; }
+.plan .what b .done { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--found); color: #fff; font-size: 12px; margin-left: 2px; flex: none; }
+.plan li.isdone .when { opacity: .6; }
 .plan .when .tz { display: block; font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: .04em; }
 .plan .tzjump { font-size: 12px; font-weight: 600; color: var(--accent); margin-top: 2px; }
 .search .pin { flex: none; width: 44px; padding: 0; }
@@ -901,6 +903,8 @@ dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .btn:disabled { opacity: 0.45; cursor: default; }
 .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
 .row .btn { flex: 1 1 140px; }
+.row .btn.wide { flex: 1 1 100%; min-height: 52px; font-size: 17px; }
+.row.two .btn { flex: 1 1 0; min-width: 0; }
 .incounty { margin-top: 14px; padding: 12px; border-radius: 12px; background: var(--panel-2); display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
 .incounty > div { min-width: 0; }
 .toggles { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; }
@@ -995,7 +999,11 @@ var HICONS = {
 };
 HICONS.check = SVG('<circle cx="12" cy="12" r="11" fill="#1f8a3a" stroke="#ffffff" stroke-width="2"/><path d="m6.5 12.5 3.6 3.6 7.4-8" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>');
 STOPS[7] = ['Guster Venue', HICONS.note];
-var VISIT_TYPES = [1, 2, 4, 7, 5, 6];
+STOPS[8] = ['Geocache', SVG('<g fill="#1e6fd9"><rect x="3" y="8.5" width="18" height="12" rx="1.6"/><path d="M4.2 5.2h15.6l1.2 2.4H3z"/></g><rect x="9" y="11.5" width="6" height="2.4" rx="1" fill="#ffffff"/>')];
+STOPS[9] = ['Lab Stop', SVG('<path fill="#7b3fc4" d="M9 2.5h6v1.8h-1v4.6l5.6 9.4A2.2 2.2 0 0 1 17.7 21.6H6.3a2.2 2.2 0 0 1-1.9-3.3L10 8.9V4.3H9z"/><path fill="#d9c6f2" d="M7.6 15.5h8.8l2 3.4H5.6z"/>')];
+var PLAN_ONLY = { 8: 1, 9: 1 };                                  // Geocache and Lab Stop: for planning and routing, never sent to Pro
+function isCacheStop(p) { return !!p && (PLAN_ONLY[p.stop] || p.kind === 'caches' || p.kind === 'labs'); }
+var VISIT_TYPES = [1, 2, 4, 7, 5, 6, 8, 9];
 var BASEMAPS = [
   { id: 'none', name: 'None', note: 'Your layers only' },
   { id: 'osm', name: 'OpenStreetMap', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', max: 19, attr: '&copy; OpenStreetMap contributors' },
@@ -1161,7 +1169,7 @@ L.Canvas.include({ _updateTriangle: function (layer) {
 } });
 var ICON_IMG = {};
 function loadIcons() {
-  var all = { s1: STOPS[1][1], s2: STOPS[2][1], s3: STOPS[3][1], s4: STOPS[4][1], s5: STOPS[5][1], s6: STOPS[6][1], s7: STOPS[7][1], check: HICONS.check, star: HICONS.star, starOpen: HICONS.starOpen, note: HICONS.note };
+  var all = { s1: STOPS[1][1], s2: STOPS[2][1], s3: STOPS[3][1], s4: STOPS[4][1], s5: STOPS[5][1], s6: STOPS[6][1], s7: STOPS[7][1], s8: STOPS[8][1], s9: STOPS[9][1], check: HICONS.check, star: HICONS.star, starOpen: HICONS.starOpen, note: HICONS.note };
   return Promise.all(Object.keys(all).map(function (k) {
     return new Promise(function (res) {
       var im = new Image(); im.onload = im.onerror = function () { res(); };
@@ -1268,19 +1276,28 @@ function markVisited(f) {
   saveVisits(); toast((f.name || 'Stop') + ' marked visited');
 }
 function removeVisit(id) { visits = visits.filter(function (v) { return String(v.id) !== String(id); }); saveVisits(); }
+function stopType(p) { return p.kind === 'caches' && p.stop === 6 ? 8 : p.kind === 'labs' && p.stop === 6 ? 9 : p.stop; }   // older plans stored caches as 6
+function stopVisits(p) { return visits.filter(function (v) { return (v.sid != null && String(v.sid) === String(p.id)) || (v.pk && p.kind === 'pois' && v.pk === poiKey(p)); }); }
+function stopDone(p) { return isCacheStop(p) ? !!p.done : stopVisits(p).length > 0; }
+function markStop(p, on) {
+  if (isCacheStop(p)) { p.done = !!on; if (!on) delete p.done; saveItin(); return; }
+  if (on) { if (!stopVisits(p).length) visits.push({ id: Date.now(), sid: p.id, pk: p.kind === 'pois' ? poiKey(p) : undefined, stop: p.stop, name: p.name, x: p.x, y: p.y, t: nowLocal(), url: p.url || null, notes: p.notes || null }); }
+  else { var gone = stopVisits(p).map(function (v) { return String(v.id); }); visits = visits.filter(function (v) { return gone.indexOf(String(v.id)) < 0; }); }
+  saveVisits();
+}
 function addPlaceForm(ll, name, type) {
   sheet._ll = ll;
   var dl = D.itin.days.length ? dayLabel(D.itin.days[curDay], curDay) : 'Day 1';
   var h = head('Pin at ' + ll.lat.toFixed(4) + ', ' + ll.lng.toFixed(4), 'Add a place') + '<label class="kicker" for="vName" style="display:block;margin-top:14px">Name</label>' +
-    '<input id="vName" type="text" autocomplete="off" style="width:100%;min-height:44px;font:inherit;border:2px solid var(--line);border-radius:10px;padding:0 10px;background:var(--panel);color:var(--fg)">' +
+    '<input id="vName" type="text" autocomplete="off" style="width:100%;box-sizing:border-box;min-height:44px;font:inherit;font-size:16px;border:2px solid var(--line);border-radius:10px;padding:0 10px;background:var(--panel);color:var(--fg)">' +
     '<div class="kicker" style="margin-top:12px">Type</div><div class="seg" id="vType" style="grid-template-columns:repeat(3,1fr)">';
   var ty = type || 6;
   if (VISIT_TYPES.indexOf(3) < 0) VISIT_TYPES.splice(2, 0, 3);
   VISIT_TYPES.forEach(function (t, i) { h += '<button type="button" data-act="vtype" data-t="' + t + '" aria-pressed="' + (t === ty) + '">' + esc(STOPS[t][0].replace('/Trailhead', '').replace('/Garden/Viewpoint', '')) + '</button>'; });
   h += '</div><label class="kicker" for="vNotes" style="display:block;margin-top:12px">Notes (optional)</label>' +
-    '<input id="vNotes" type="text" autocomplete="off" style="width:100%;min-height:44px;font:inherit;border:2px solid var(--line);border-radius:10px;padding:0 10px;background:var(--panel);color:var(--fg)">' +
-    '<div class="kicker" style="margin-top:14px">Itinerary · ' + esc(dl) + '</div><div class="row" style="margin-top:6px"><button class="btn primary" type="button" data-act="pinadd">Add stop</button>' +
-    '<button class="btn" type="button" data-act="pinstart">Start day</button><button class="btn" type="button" data-act="pinend">End day</button></div>' +
+    '<input id="vNotes" type="text" autocomplete="off" style="width:100%;box-sizing:border-box;min-height:44px;font:inherit;font-size:16px;border:2px solid var(--line);border-radius:10px;padding:0 10px;background:var(--panel);color:var(--fg)">' +
+    '<div class="kicker" style="margin-top:14px">Itinerary · ' + esc(dl) + '</div><div class="row" style="margin-top:6px"><button class="btn primary wide" type="button" data-act="pinadd">Add stop</button></div>' +
+    '<div class="row two" style="margin-top:8px"><button class="btn" type="button" data-act="pinstart">Start day</button><button class="btn" type="button" data-act="pinend">End day</button></div>' +
     '<div class="row"><button class="btn" type="button" data-act="addvisit">Save as visited now</button></div>';
   openSheet(h);
   if (name) $('vName').value = name;
@@ -1411,8 +1428,8 @@ function showPoint(kind, f) {
   h += '<div class="row">' + (url ? '<a class="btn" href="' + esc(url) + '" target="_blank" rel="noopener">Open web page</a>' : '') +
     '<button class="btn" type="button" data-act="copy" data-text="' + esc(f.y.toFixed(5) + ', ' + f.x.toFixed(5)) + '">Copy coordinates</button>' + navLink(f, 'drive') + '</div>';
   var dl = D.itin.days.length ? dayLabel(D.itin.days[curDay], curDay) : 'Day 1';
-  h += '<div class="kicker" style="margin-top:14px">Itinerary · ' + esc(dl) + '</div><div class="row" style="margin-top:6px"><button class="btn" type="button" data-act="itadd">Add stop</button>' +
-       '<button class="btn" type="button" data-act="itstart">Start day</button><button class="btn" type="button" data-act="itend">End day</button></div>';
+  h += '<div class="kicker" style="margin-top:14px">Itinerary · ' + esc(dl) + '</div><div class="row" style="margin-top:6px"><button class="btn primary wide" type="button" data-act="itadd">Add stop</button></div>' +
+       '<div class="row two" style="margin-top:8px"><button class="btn" type="button" data-act="itstart">Start day</button><button class="btn" type="button" data-act="itend">End day</button></div>';
   sheet._point = { kind: kind, f: f };
   openSheet(h);
 }
@@ -1531,7 +1548,7 @@ function saveText(name, text, done) {
   }
 }
 function saveVisitsCsv(all) {
-  var vs = visits.filter(function (v) { return all || !v.done; }); if (!vs.length) return;
+  var vs = visits.filter(function (v) { return (all || !v.done) && !PLAN_ONLY[v.stop]; }); if (!vs.length) return;
   var q = function (v) { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
   var out = ['STOP_TYPE,NAME,LAT,LON,VISITED,URL,NOTES,G_RATING,AT_RATING,TRAIL_LEN,SOURCE'];
   vs.forEach(function (v) { out.push([v.stop, v.name, v.y, v.x, v.t, v.url, v.notes, v.g, v.at, v.len, v.pk ? 'Planned' : 'Added'].map(q).join(',')); });
@@ -1602,7 +1619,7 @@ function wire() {
     else if ((act === 'layersall' || act === 'layersnone') && sheet._layerKeys) { sheet._layerKeys.forEach(function (k) { show[k] = act === 'layersall'; }); store.set('show', show); applyLayers(); drawLabels(); showLayers(); }
     else if (act === 'nfgo') { var cc = byId(b.getAttribute('data-id')); if (cc) { closeSheet(); map.fitBounds([[unmy(cc.b[3]), cc.b[0] * 360 - 180], [unmy(cc.b[1]), cc.b[2] * 360 - 180]], { padding: [40, 40], maxZoom: 12 }); setTimeout(function () { showCounty(cc); }, 400); } }
     else if ((act === 'itadd' || act === 'itstart' || act === 'itend') && sheet._point) { addToItin(sheet._point.kind, sheet._point.f, act === 'itstart' ? 'start' : act === 'itend' ? 'end' : 'stop'); closeSheet(); }
-    else if (/^stop(save|up|down|del|move)$/.test(act)) stopAction(act, +b.getAttribute('data-i'));
+    else if (/^stop(save|up|down|del|move|visit|unvisit)$/.test(act)) stopAction(act, +b.getAttribute('data-i'));
     else if (act === 'stopto') { var dd = D.itin.days[curDay], st = dd.stops.splice(+b.getAttribute('data-i'), 1)[0], to = D.itin.days[+b.getAttribute('data-j')]; to.stops.push(st); scheduleRoute(dd); scheduleRoute(to); saveItin(); drawItin(); renderItin(); closeSheet(); toast('Moved to ' + dayLabel(to, +b.getAttribute('data-j'))); }
     else if (act === 'visit' && sheet._point) { markVisited(sheet._point.f); showPoint(sheet._point.kind, sheet._point.f); }
     else if (act === 'unvisit') { removeVisit(b.getAttribute('data-id')); if (sheet._point) showPoint(sheet._point.kind, sheet._point.f); toast('Visit removed'); }
@@ -1620,6 +1637,7 @@ function wire() {
     else if (act === 'addvisit' && sheet._ll) {
       var nm = ($('vName').value || '').trim(); if (!nm) { toast('Give the place a name'); $('vName').focus(); return; }
       var tb = sheet.querySelector('[data-act=vtype][aria-pressed=true]');
+      if (tb && PLAN_ONLY[+tb.getAttribute('data-t')]) { toast('Geocaches and lab stops are for planning. Finds come into Pro from the iCaching CSV.'); return; }
       visits.push({ id: Date.now(), stop: tb ? +tb.getAttribute('data-t') : 6, name: nm, x: +sheet._ll.lng.toFixed(5), y: +sheet._ll.lat.toFixed(5), t: nowLocal(), notes: ($('vNotes').value || '').trim() || null });
       saveVisits(); closeSheet(); toast(nm + ' saved as visited');
     }
@@ -1817,6 +1835,8 @@ function showWelcome() {
 var lastQuery = '', lastResults = [];
 function guessType(name, cats) {
   var n = (name || '').toLowerCase(), c = (cats || []).join(' ');
+  if (/\bgc[0-9a-z]{2,6}\b|geocache/.test(n)) return 8;
+  if (/\blab (cache|stop)|adventure lab/.test(n)) return 9;
   if (/brew|taproom|ale ?house|beer|cider|distill/.test(n)) return 1;
   if (/hotel|inn\b|motel|suites|lodge|resort|hampton|marriott|hilton|hyatt|courtyard|residence/.test(n) || /accommodation/.test(c)) return 3;
   if (/trail|trailhead|hike/.test(n)) return 2;
@@ -1856,7 +1876,7 @@ function renderResults() {
   });
   box.innerHTML = h + '</ul><p class="note">Add opens the place so you can check its type and choose stop, start or end.</p>';
 }
-var STAY = { 1: 60, 2: 120, 3: 0, 4: 45, 5: 60, 6: 30, 7: 180, cache: 15, lab: 20 };
+var STAY = { 1: 60, 2: 120, 3: 0, 4: 45, 5: 60, 6: 30, 7: 180, 8: 15, 9: 20, cache: 15, lab: 20 };
 var curDay = 0, itinTimer = null, routing = {};
 function itin() { return D.itin; }
 function hm(s) { if (!s || !/^\d{1,2}:\d{2}$/.test(s)) return null; var p = s.split(':'); return +p[0] * 60 + +p[1]; }
@@ -1989,9 +2009,9 @@ function sunAt(date, p) {
 }
 var DARK_KINDS = { caches: 1, labs: 1 };
 function sunWarn(day, s, r) {
-  if (!day.date || !(s.stop === 2 || DARK_KINDS[s.kind])) return '';
+  if (!day.date || !(s.stop === 2 || isCacheStop(s))) return '';
   var sun = sunAt(day.date, s); if (!sun) return '';
-  var what = s.stop === 2 && !DARK_KINDS[s.kind] ? 'hike' : 'cache';
+  var what = s.stop === 9 || s.kind === 'labs' ? 'lab stop' : isCacheStop(s) ? 'cache' : 'hike';
   if (r.arrive != null && r.arrive % 1440 >= sun.set) return 'After dark: sunset is ' + clock(sun.set);
   if (r.leave != null && r.leave > sun.set) return 'The ' + what + ' runs ' + dur(r.leave - sun.set) + ' past sunset (' + clock(sun.set) + ')';
   if (r.arrive != null && r.arrive < sun.rise) return 'Before sunrise (' + clock(sun.rise) + ')';
@@ -2344,7 +2364,7 @@ function addDay() {
   curDay = days.length - 1; saveItin();
 }
 function placeOf(kind, f) {
-  var stop = kind === 'pois' || kind === 'search' || kind === 'pin' ? (f.stop || 6) : kind === 'hbrew' || kind === 'huntappd' ? 1 : kind === 'hhikes' ? 2 : kind === 'hparks' ? 4 : kind === 'hguster' ? 7 : 6;
+  var stop = kind === 'pois' || kind === 'search' || kind === 'pin' ? (f.stop || 6) : kind === 'caches' ? 8 : kind === 'labs' ? 9 : kind === 'hbrew' || kind === 'huntappd' ? 1 : kind === 'hhikes' ? 2 : kind === 'hparks' ? 4 : kind === 'hguster' ? 7 : 6;
   return { name: f.name || f.code || 'Stop', x: f.x, y: f.y, stop: stop, kind: kind, code: f.code || null, url: f.url || null, addr: f.addr || null };
 }
 function addToItin(kind, f, where) {
@@ -2432,8 +2452,8 @@ function renderItin() {
       wpIdx++;
       var sunW = sunWarn(day, s, r);
       var zl = sc.zones > 1 && r.arrive != null ? '<span class="tz">' + esc(zoneAbbr(day, s)) + '</span>' : '';
-      h += '<li class="stop' + (r.late ? ' late' : '') + '"><div class="when">' + (r.arrive != null ? clock(r.arrive) : '') + (r.leave != null && r.leave !== r.arrive ? '<br><span>' + clock(r.leave) + '</span>' : '') + zl + '</div>' +
-        '<div class="what" data-it="edit" data-i="' + i + '" role="button" tabindex="0" aria-label="Edit ' + esc(s.name) + '"><b>' + (STOPS[s.stop] && s.kind !== 'caches' && s.kind !== 'labs' ? '<i class="ic">' + STOPS[s.stop][1] + '</i>' : '') + esc(s.name) + '</b>' +
+      h += '<li class="stop' + (r.late ? ' late' : '') + (stopDone(s) ? ' isdone' : '') + '"><div class="when">' + (r.arrive != null ? clock(r.arrive) : '') + (r.leave != null && r.leave !== r.arrive ? '<br><span>' + clock(r.leave) + '</span>' : '') + zl + '</div>' +
+        '<div class="what" data-it="edit" data-i="' + i + '" role="button" tabindex="0" aria-label="Edit ' + esc(s.name) + '"><b>' + (STOPS[stopType(s)] ? '<i class="ic">' + STOPS[stopType(s)][1] + '</i>' : '') + esc(s.name) + (stopDone(s) ? '<span class="done" title="' + (isCacheStop(s) ? 'Found' : 'Visited') + '">\u2713</span>' : '') + '</b>' +
         (r.late ? '<div class="warn">Arrives ' + clock(r.eta) + ', ' + dur(r.late) + ' after the ' + clock(hm(s.arrive)) + ' plan</div>' : '') +
         stopWx(day, s, r.arrive) + (r.short ? '<div class="warn">Less than 5 minutes here</div>' : '') + (sunW ? '<div class="warn">' + esc(sunW) + '</div>' : '') +
         (s.hours ? '<div class="pnote">Hours: ' + esc(s.hours) + '</div>' : '') + (s.notes ? '<div class="pnote">' + esc(s.notes) + '</div>' : '') + '</div>' +
@@ -2486,14 +2506,19 @@ function editStop(i) {
   }
   var h = head(dayLabel(day, curDay) + ' · stop ' + (i + 1), s.name) +
     '<div class="form"><label>Name <input id="sName" type="text" value="' + esc(s.name) + '"></label>' +
-    '<label>Type <select id="sType">' + [1, 2, 3, 4, 5, 6, 7].map(function (t) { return '<option value="' + t + '"' + (s.stop === t ? ' selected' : '') + '>' + esc(STOPS[t][0]) + '</option>'; }).join('') + '</select></label>' +
+    '<label>Type <select id="sType">' + [1, 2, 3, 4, 5, 6, 7, 8, 9].map(function (t) { return '<option value="' + t + '"' + (s.stop === t ? ' selected' : '') + '>' + esc(STOPS[t][0]) + '</option>'; }).join('') + '</select></label>' +
     '<label>Stay (minutes) <input id="sStay" type="number" min="0" step="5" value="' + esc(s.stay != null ? s.stay : '') + '"></label>' +
     '<label>Arrive at (fixed, optional) <input id="sArrive" type="time" value="' + esc(s.arrive || '') + '"></label>' +
     '<label>Leave by (fixed, optional) <input id="sLeave" type="time" value="' + esc(s.leave || '') + '"></label>' +
     '<label>Open hours <input id="sHours" type="text" placeholder="e.g. 12–9 PM, closed Mon" value="' + esc(s.hours || '') + '"></label>' +
     '<label>Notes <textarea id="sNotes" rows="3">' + esc(s.notes || '') + '</textarea></label></div>' +
     '<div class="row"><button class="btn primary" type="button" data-act="stopsave" data-i="' + i + '">Save</button>' + navLink(s, modeOf(s)) +
-    '</div>' +
+    '</div>' + (function () {
+      var cache = isCacheStop(s), v = stopVisits(s)[0];
+      if (stopDone(s)) return '<div class="incounty"><div><div class="kicker">' + (cache ? 'Found' : 'Visited') + '</div><b>' + esc(cache ? 'Marked on this phone' : v.t) + '</b></div><button class="link" type="button" data-act="stopunvisit" data-i="' + i + '">Undo</button></div>';
+      return '<div class="row"><button class="btn" type="button" data-act="stopvisit" data-i="' + i + '">' + (cache ? 'Mark found' : 'Mark visited') + '</button></div>' +
+        (cache ? '<p class="note">A check mark for your plan only. The find reaches Pro from the iCaching CSV.</p>' : '');
+    })() +
     '<div class="row"><button class="btn" type="button" data-act="stopmove" data-i="' + i + '"' + (D.itin.days.length > 1 ? '' : ' disabled') + '>Move to another day</button>' +
     '<button class="btn" type="button" data-act="stopdel" data-i="' + i + '">Remove</button></div>';
   sheet._point = null; openSheet(h);
@@ -2501,6 +2526,11 @@ function editStop(i) {
 }
 function stopAction(act, i) {
   var day = D.itin.days[curDay], s = day.stops[i]; if (!s) return;
+  if (act === 'stopvisit' || act === 'stopunvisit') {
+    markStop(s, act === 'stopvisit'); drawItin(); renderItin(); editStop(i);
+    toast(act === 'stopvisit' ? s.name + (isCacheStop(s) ? ' marked found' : ' marked visited') : 'Undone');
+    return;
+  }
   if (act === 'stopsave' && isNote(s)) { s.text = ($('sNoteText').value || '').trim(); if (!s.text) day.stops.splice(i, 1); closeSheet(); toast(s.text ? 'Note saved' : 'Empty note removed'); }
   else if (act === 'stopsave') {
     var v = function (id) { return ($(id).value || '').trim(); };
@@ -2544,7 +2574,7 @@ function stopsGeoJSON() {
         TRIP: D.itin.name || '', DAY: i + 1, DATE: d.date || '', ROLE: role, ARRIVE: s && s.arrive != null ? clock(s.arrive) : '', LEAVE: s && s.leave != null ? clock(s.leave) : '',
         SOURCE: p.kind === 'search' ? 'Search' : p.kind === 'pin' ? 'Pin' : 'Map data' } });
     };
-    add(d.start, 'Start', null); var sn = 0; d.stops.forEach(function (s, j) { if (!isNote(s)) add(s, 'Stop ' + (++sn), sc.stops[j]); }); add(d.end, 'End', null);
+    add(isCacheStop(d.start) ? null : d.start, 'Start', null); var sn = 0; d.stops.forEach(function (s, j) { if (isNote(s)) return; ++sn; if (!isCacheStop(s)) add(s, 'Stop ' + sn, sc.stops[j]); }); add(isCacheStop(d.end) ? null : d.end, 'End', null);
   });
   return JSON.stringify({ type: 'FeatureCollection', features: fs });
 }
