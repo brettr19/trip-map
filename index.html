@@ -772,6 +772,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
 .plan .ends.empty .what { color: var(--muted); }
 .plan .acts button { border: 0; background: var(--panel-2); border-radius: 8px; min-height: 36px; min-width: 36px; padding: 0 10px; font-weight: 600; }
 .plan .acts { display: flex; gap: 4px; align-items: center; }
+.plan li.stop, .plan .grip { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+body.drag-stop, body.drag-stop * { -webkit-user-select: none !important; user-select: none !important; }
 .plan .grip { touch-action: none; cursor: grab; min-width: 32px; padding: 0 6px; background: none !important; color: var(--muted); }
 .plan .grip svg { width: 12px; height: 20px; fill: currentColor; display: block; margin: auto; }
 .plan .grip:active { cursor: grabbing; }
@@ -1739,7 +1741,11 @@ function routeDay(day, force) {
   if (!force && day.route && day.route.key === key && day.route.src === 'ors') return Promise.resolve();
   var k = orsKey();
   var finish = function (r) { delete routing[day.id]; r.key = key; day.route = r; r.legs.forEach(function (l, i) { l.counties = legCounties(r.line.slice(l.a, l.b + 1)); }); saveItin(); drawItin(); renderItin(); };
-  if (!k || IN_PREVIEW || navigator.onLine === false) { finish(estLegs(w)); return Promise.resolve(); }
+  if (!k || IN_PREVIEW || navigator.onLine === false) {
+    var er = estLegs(w); er.why = !k ? 'nokey' : 'offline'; finish(er);
+    if (force) toast(!k ? 'Road routes need the OpenRouteService key on this device. Add it under Drive times setup at the bottom of the itinerary.' : 'No connection. Using estimates until you are back online.');
+    return Promise.resolve();
+  }
   if (routing[day.id]) return routing[day.id];
   var ctrl = window.AbortController ? new AbortController() : null, timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 20000);
   routing[day.id] = fetch('https://api.openrouteservice.org/v2/directions/driving-car/geojson', {
@@ -1881,7 +1887,7 @@ function renderItin() {
     h += placeRow(day.end, 'end', sc.end != null && day.end ? 'Arrive ' + clock(sc.end) : '');
     h += '</ol>';
     if (!day.stops.length && !day.start) h += '<p class="note">Tap a hotel, brewery, cache or any place on the map, then use Start day, Add stop or End day in its pop-up.</p>';
-    h += '<div class="daytot">' + (totMi ? Math.round(totMi) + ' mi · ' + dur(totMin) + ' driving' : '') + (day.route && day.route.src === 'est' && day.route.key === wkey(day) ? ' <span class="est">estimate</span>' : '') +
+    h += '<div class="daytot">' + (totMi ? Math.round(totMi) + ' mi · ' + dur(totMin) + ' driving' : '') + (day.route && day.route.src === 'est' && day.route.key === wkey(day) ? ' <span class="est">estimate</span>' + (day.route.why === 'nokey' ? '<div class="pnote">Dotted lines are straight-line estimates. Add the drive-times key on this device below for road routes.</div>' : '') : '') +
       (routing[day.id] ? ' <span class="est">updating…</span>' : '') + '</div>';
     h += '<div class="row"><button class="btn" type="button" data-it="route">Update drive times</button><button class="btn" type="button" data-it="delday">Delete this day</button></div>';
   }
@@ -1975,6 +1981,8 @@ function moveStop(from, to) {
 function startDrag(ev, grip) {
   if (ev.button > 0) return;
   ev.preventDefault();
+  document.body.classList.add('drag-stop');
+  try { var sel = window.getSelection && window.getSelection(); if (sel) sel.removeAllRanges(); } catch (e) {}
   var ol = grip.closest('.plan'), i = +grip.getAttribute('data-grip');
   var before = ol.querySelectorAll('li.stop')[i]; if (!before) return;
   var oldTop = before.getBoundingClientRect().top;
@@ -2000,6 +2008,7 @@ function startDrag(ev, grip) {
   };
   var end = function () {
     grip.removeEventListener('pointermove', move); grip.removeEventListener('pointerup', end); grip.removeEventListener('pointercancel', end);
+    document.body.classList.remove('drag-stop');
     if (to !== i && moveStop(i, to)) toast('Moved ' + D.itin.days[curDay].stops[to].name);
     renderItin();
   };
@@ -2030,6 +2039,9 @@ function wireItin() {
     else if (a === 'saveroutes') saveText((D.itin.name ? D.itin.name.replace(/[^\w-]+/g, '_') + '_' : '') + 'routes.geojson', routesGeoJSON(), function () { toast('Routes saved'); });
   });
   el.addEventListener('pointerdown', function (ev) { var g = ev.target.closest('[data-grip]'); if (g) startDrag(ev, g); });
+  // iPhone Safari starts a text selection or the callout menu on a held finger unless the touch itself is stopped
+  el.addEventListener('touchstart', function (ev) { if (ev.target.closest && ev.target.closest('[data-grip]')) ev.preventDefault(); }, { passive: false });
+  el.addEventListener('selectstart', function (ev) { if (document.body.classList.contains('drag-stop') || (ev.target.closest && ev.target.closest('.grip'))) ev.preventDefault(); });
   el.addEventListener('keydown', function (ev) {
     if (ev.target.id === 'plSearch' && ev.key === 'Enter') { ev.preventDefault(); searchPlaces(ev.target.value); return; }
     var g = ev.target.closest && ev.target.closest('[data-grip]');
