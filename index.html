@@ -15,6 +15,9 @@
   --notfound: #e06464;
   --notfound-fill: rgba(242, 112, 112, 0.42);
   --route: #f000c8;
+  --itin: #0b6bcb;
+  --itin-other: #6f9fd3;
+  --warn: #b3261e;
   --hroute: #7b2cbf;
   --trail: #8c510a;
   --fcache: #ffc21a;
@@ -34,7 +37,7 @@
   :root:not([data-theme="light"]) {
     --bg: #171c19; --panel: #222925; --panel-2: #2b332e; --fg: #e8eee9; --muted: #9eaaa2; --line: #3a443e;
     --accent: #e052d0; --accent-fg: #1a0f19;
-    --found: #8fcf5c; --found-fill: rgba(130, 205, 90, 0.38); --notfound: #f08a90; --notfound-fill: rgba(242, 112, 112, 0.38); --route: #ff3fd6; --hroute: #b580ff; --trail: #d9a35c; --fcache: #ffd24d; --fcache-edge: #2a2000;
+    --found: #8fcf5c; --found-fill: rgba(130, 205, 90, 0.38); --notfound: #f08a90; --notfound-fill: rgba(242, 112, 112, 0.38); --route: #ff3fd6; --itin: #5aa7ff; --itin-other: #3d6797; --warn: #ff8a80; --hroute: #b580ff; --trail: #d9a35c; --fcache: #ffd24d; --fcache-edge: #2a2000;
     --county-line: #66706a; --county-edit: #f2f5f2; --label: #c9d3cc; --label-halo: rgba(23, 28, 25, 0.85);
     --cache: #6fa0ff; --special: #ff6b6b; --lab: #6fd34f; --shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
     color-scheme: dark;
@@ -43,7 +46,7 @@
 :root[data-theme="dark"] {
   --bg: #171c19; --panel: #222925; --panel-2: #2b332e; --fg: #e8eee9; --muted: #9eaaa2; --line: #3a443e;
   --accent: #e052d0; --accent-fg: #1a0f19;
-  --found: #8fcf5c; --found-fill: rgba(130, 205, 90, 0.38); --notfound: #f08a90; --notfound-fill: rgba(242, 112, 112, 0.38); --route: #ff3fd6; --hroute: #b580ff; --trail: #d9a35c; --fcache: #ffd24d; --fcache-edge: #2a2000;
+  --found: #8fcf5c; --found-fill: rgba(130, 205, 90, 0.38); --notfound: #f08a90; --notfound-fill: rgba(242, 112, 112, 0.38); --route: #ff3fd6; --itin: #5aa7ff; --itin-other: #3d6797; --warn: #ff8a80; --hroute: #b580ff; --trail: #d9a35c; --fcache: #ffd24d; --fcache-edge: #2a2000;
   --county-line: #66706a; --county-edit: #f2f5f2; --label: #c9d3cc; --label-halo: rgba(23, 28, 25, 0.85);
   --cache: #6fa0ff; --special: #ff6b6b; --lab: #6fd34f; --shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
   color-scheme: dark;
@@ -724,6 +727,46 @@ svg.leaflet-image-layer.leaflet-interactive path {
 .sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 600; background: var(--panel); border-radius: 16px 16px 0 0; box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.25); padding: 14px 16px calc(16px + env(safe-area-inset-bottom, 0px)); max-height: 72%; overflow-y: auto; -webkit-overflow-scrolling: touch; transform: translateY(105%); transition: transform 0.18s ease-out; }
 .sheet.open { transform: none; }
 @media (prefers-reduced-motion: reduce) { .sheet { transition: none; } }
+.itin { position: absolute; left: 0; right: 0; bottom: 0; z-index: 550; background: var(--panel); border-radius: 16px 16px 0 0; box-shadow: 0 -4px 18px rgba(0,0,0,.25);
+  max-height: 78%; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px 16px calc(16px + env(safe-area-inset-bottom, 0px)); }
+@media (min-width: 900px) {
+  .itin { top: 0; bottom: 0; right: auto; width: 420px; max-height: none; border-radius: 0; box-shadow: 2px 0 14px rgba(0,0,0,.18); padding-top: calc(12px + env(safe-area-inset-top, 0px)); }
+  body.itin-open #map { left: 420px; }
+  body.itin-open .topleft { left: 436px; }
+  body.itin-open .sheet { left: 436px; }
+}
+.itin-head { display: flex; gap: 10px; align-items: center; }
+.itin-name { flex: 1; min-width: 0; font: inherit; font-size: 20px; font-weight: 700; border: 0; border-bottom: 2px solid var(--line); background: none; color: var(--fg); padding: 6px 0; }
+.daytabs { display: flex; gap: 6px; overflow-x: auto; margin: 12px -16px 0; padding: 0 16px 4px; }
+.daytabs button { flex: none; border: 2px solid var(--line); background: var(--panel); border-radius: 18px; min-height: 36px; padding: 0 12px; font-weight: 600; white-space: nowrap; }
+.daytabs button[aria-selected="true"] { background: var(--fg); color: var(--panel); border-color: var(--fg); }
+.dayrow { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+.dayrow label, .form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); flex: 1 1 140px; }
+.dayrow input, .form input, .form textarea, .ors input { font: inherit; font-size: 16px; color: var(--fg); background: var(--panel); border: 2px solid var(--line); border-radius: 10px; min-height: 44px; padding: 0 10px; }
+.form textarea { padding: 8px 10px; min-height: 70px; }
+.form { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.today { margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: var(--panel-2); }
+.plan { list-style: none; margin: 14px 0 0; padding: 0; }
+.plan li { display: grid; grid-template-columns: 72px 1fr auto; gap: 10px; align-items: start; padding: 10px 0; border-top: 1px solid var(--line); }
+.plan .when { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.plan .when span { font-weight: 400; color: var(--muted); }
+.plan .what { min-width: 0; overflow-wrap: anywhere; }
+.plan .what b { display: flex; gap: 6px; align-items: center; }
+.plan .ic svg { width: 18px; height: 18px; display: block; }
+.plan .pnote { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.plan .warn { color: var(--warn); font-size: 13px; font-weight: 600; margin-top: 2px; }
+.plan .leg { border-top: 0; padding: 0 0 2px; color: var(--muted); font-size: 13px; }
+.plan .leg .what { border-left: 3px solid var(--itin); padding-left: 10px; margin-left: -12px; }
+.plan .nf { color: var(--warn); }
+.plan .ends .kicker { display: block; }
+.plan .ends.empty .what { color: var(--muted); }
+.plan .acts button { border: 0; background: var(--panel-2); border-radius: 8px; min-height: 36px; min-width: 36px; padding: 0 10px; font-weight: 600; }
+.daytot { margin-top: 8px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.est { font-weight: 400; color: var(--muted); font-size: 13px; }
+.ors { margin-top: 18px; }
+.ors summary { cursor: pointer; font-weight: 600; min-height: 32px; }
+.ors input { width: 100%; margin-top: 6px; font-family: var(--mono); font-size: 13px; }
+.wpnum { width: 22px; height: 22px; border-radius: 50%; background: var(--itin); color: #ffffff; font: 700 12px/22px var(--ui); text-align: center; box-shadow: 0 0 0 2px #ffffff; }
 @media (min-width: 720px) { .sheet { left: 16px; right: auto; bottom: 16px; width: 380px; border-radius: 16px; } }
 .sheet-head { display: flex; gap: 12px; align-items: flex-start; }
 .sheet-head > div { flex: 1; min-width: 0; }
@@ -790,6 +833,9 @@ textarea { width: 100%; min-height: 120px; margin-top: 12px; font: 12px/1.4 var(
   </div>
 
   <div class="fabs">
+    <button class="fab" id="btnItin" type="button" aria-label="Itinerary" title="Itinerary">
+      <svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+    </button>
     <button class="fab" id="btnLayers" type="button" aria-label="Layers" title="Layers">
       <svg viewBox="0 0 24 24"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="m3 13 9 5 9-5"/></svg>
     </button>
@@ -802,6 +848,7 @@ textarea { width: 100%; min-height: 120px; margin-top: 12px; font: 12px/1.4 var(
     </button>
   </div>
 
+  <section class="itin" id="itin" hidden aria-label="Itinerary"></section>
   <section class="sheet" id="sheet" aria-live="polite"></section>
   <input type="file" id="filePick" hidden aria-label="Data file">
   <div class="toast" id="toast" hidden></div>
@@ -903,14 +950,14 @@ function countyAt(lat, lon) {
 var D = null, map = null, countyLayer = null, labelPane = null;
 var edits = store.get('edits', {});            // { id: { g, was, t, done } }  — changes made on this phone
 var show = Object.assign({ counties: true, names: true, caches: true, labs: true, route: true, pois: true,
-  visits: true, hroutes: true, htrails: true, hfound: true, hbrew: true, huntappd: true, hguster: true, hhikes: true, hparks: true }, store.get('show', {}));
+  visits: true, itin: true, hroutes: true, htrails: true, hfound: true, hbrew: true, huntappd: true, hguster: true, hhikes: true, hparks: true }, store.get('show', {}));
 var mode = store.get('mode', 'plan') === 'hist' ? 'hist' : 'plan';
 var visits = store.get('visits', []);          // places marked visited on this phone: {id, stop, name, x, y, t, pk, url, notes, g, at, len, typ, done}
 function poiKey(p) { return (p.name || '') + '|' + p.x + '|' + p.y; }
 function visitOf(p) { var k = poiKey(p); for (var i = 0; i < visits.length; i++) if (visits[i].pk === k) return visits[i]; return null; }
 function nowLocal() { var d = new Date(), z = function (n) { return (n < 10 ? '0' : '') + n; }; return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + ' ' + z(d.getHours()) + ':' + z(d.getMinutes()); }
 function saveVisits() { if (!store.set('visits', visits)) toast('This browser is not saving visits. Save a file before closing.'); drawVisits(); refreshChrome(); }
-var MODE_LAYERS = { plan: ['route', 'labs', 'caches', 'pois', 'visits'], hist: ['hroutes', 'htrails', 'hfound', 'hhikes', 'hparks', 'huntappd', 'hbrew', 'hguster'] };
+var MODE_LAYERS = { plan: ['route', 'itin', 'labs', 'caches', 'pois', 'visits'], hist: ['hroutes', 'htrails', 'hfound', 'hhikes', 'hparks', 'huntappd', 'hbrew', 'hguster'] };
 var POINT_LAYERS = { plan: ['pois', 'caches', 'labs'], hist: ['hguster', 'hbrew', 'huntappd', 'hhikes', 'hparks', 'hfound'] };
 var LINE_LAYERS = { plan: [], hist: ['htrails', 'hroutes'] };
 function applyLayers() {
@@ -1055,6 +1102,7 @@ function buildMap() {
   }
   groups.pois = L.layerGroup(icons(D.pois, function (p) { return 's' + (STOPS[p.stop] ? p.stop : 6); }));
   groups.visits = L.layerGroup(); visitCanvas = canvas;
+  groups.itin = L.layerGroup();
   // ---- history map
   var H = D.hist;
   var lines = function (arr, color, w, dash) { return arr.map(function (r) { var l = L.polyline(routePts(r), { renderer: canvas, color: color, weight: w, opacity: 0.9, dashArray: dash, interactive: false }); l._f = r; return l; }); };
@@ -1082,7 +1130,7 @@ function buildMap() {
   map.on('zoomend', sizeDots);
   map.on('click', onTap);
   map.on('contextmenu', function (ev) { addPlaceForm(ev.latlng); });
-  drawVisits();
+  drawVisits(); drawItin();
   sizeDots(); drawLabels();
 }
 
@@ -1231,6 +1279,9 @@ function showPoint(kind, f) {
   var url = f.url && /^https?:\/\//i.test(f.url) ? f.url : null;
   h += '<div class="row">' + (url ? '<a class="btn" href="' + esc(url) + '" target="_blank" rel="noopener">Open web page</a>' : '') +
     '<button class="btn" type="button" data-act="copy" data-text="' + esc(f.y.toFixed(5) + ', ' + f.x.toFixed(5)) + '">Copy coordinates</button></div>';
+  var dl = D.itin.days.length ? dayLabel(D.itin.days[curDay], curDay) : 'Day 1';
+  h += '<div class="kicker" style="margin-top:14px">Itinerary · ' + esc(dl) + '</div><div class="row" style="margin-top:6px"><button class="btn" type="button" data-act="itadd">Add stop</button>' +
+       '<button class="btn" type="button" data-act="itstart">Start day</button><button class="btn" type="button" data-act="itend">End day</button></div>';
   sheet._point = { kind: kind, f: f };
   openSheet(h);
 }
@@ -1275,7 +1326,8 @@ function showLayers() {
     ['hparks', 'Parks, gardens and viewpoints', n(Hh.hparks), STOPS[4][1]]
   ]);
   else items = items.concat([
-    ['route', 'Planned route', D.route.length + ' segments', '<span class="ln"></span>'],
+    ['itin', 'Itinerary routes', D.itin.days.length + ' days · solid = drive times, dotted = estimate', '<span class="ln" style="background:var(--itin)"></span>'],
+    ['route', 'Planned route (from Pro)', D.route.length + ' segments', '<span class="ln"></span>'],
     ['caches', 'Planned geocaches', D.caches.length.toLocaleString() + ' · blue county, red special', '<span class="pt" style="background:var(--cache)"></span>'],
     ['labs', 'Lab caches', D.labs.length.toLocaleString() + ' stops', '<span class="tri"></span>'],
     ['pois', 'Points of interest', D.pois.length.toLocaleString() + ' in this data', STOPS[3][1]],
@@ -1391,6 +1443,9 @@ function wire() {
     }
     else if (act === 'undo' && c) { setStatus(c, c.g); showCounty(c); toast('Change undone'); }
     else if (act === 'save') saveCsv(false);
+    else if ((act === 'itadd' || act === 'itstart' || act === 'itend') && sheet._point) { addToItin(sheet._point.kind, sheet._point.f, act === 'itstart' ? 'start' : act === 'itend' ? 'end' : 'stop'); closeSheet(); }
+    else if (/^stop(save|up|down|del|move)$/.test(act)) stopAction(act, +b.getAttribute('data-i'));
+    else if (act === 'stopto') { var dd = D.itin.days[curDay], st = dd.stops.splice(+b.getAttribute('data-i'), 1)[0], to = D.itin.days[+b.getAttribute('data-j')]; to.stops.push(st); scheduleRoute(dd); scheduleRoute(to); saveItin(); drawItin(); renderItin(); closeSheet(); toast('Moved to ' + dayLabel(to, +b.getAttribute('data-j'))); }
     else if (act === 'visit' && sheet._point) { markVisited(sheet._point.f); showPoint(sheet._point.kind, sheet._point.f); }
     else if (act === 'unvisit') { removeVisit(b.getAttribute('data-id')); if (sheet._point) showPoint(sheet._point.kind, sheet._point.f); toast('Visit removed'); }
     else if (act === 'delvisit') { removeVisit(b.getAttribute('data-id')); showExport(); }
@@ -1418,6 +1473,8 @@ function wire() {
     drawLabels();
   });
   $('btnLayers').addEventListener('click', showLayers);
+  $('btnItin').addEventListener('click', function () { if ($('itin').hidden) openItin(); else closeItin(); });
+  wireItin();
   $('mPlan').addEventListener('click', function () { setMode('plan'); });
   $('mHist').addEventListener('click', function () { setMode('hist'); });
   $('btnExport').addEventListener('click', showExport);
@@ -1443,7 +1500,7 @@ function wire() {
 
 /* ---------- data on this phone ---------- */
 var HKEYS = ['hroutes', 'htrails', 'hfound', 'hbrew', 'huntappd', 'hguster', 'hhikes', 'hparks'];
-var LAYERS = ['counties', 'caches', 'labs', 'pois', 'route', 'status', 'built'].concat(HKEYS);
+var LAYERS = ['counties', 'caches', 'labs', 'pois', 'route', 'status', 'built', 'itinerary'].concat(HKEYS);
 function idb() {
   return new Promise(function (res, rej) {
     var q = indexedDB.open('tpm', 1);
@@ -1503,7 +1560,7 @@ function fromGeoJSON(gj) {            // a layer exported from ArcGIS Pro with F
   }
   throw new Error('This point layer was not recognized. Expected planned geocaches, lab caches or points of interest.');
 }
-var NAMES = { counties: 'counties', caches: 'planned geocaches', labs: 'lab cache stops', pois: 'points of interest', route: 'route segments', status: 'county statuses', hroutes: 'trip route segments', htrails: 'trails', hfound: 'found caches', hbrew: 'breweries', huntappd: 'Untappd breweries', hguster: 'Guster shows', hhikes: 'hikes', hparks: 'parks' };
+var NAMES = { counties: 'counties', caches: 'planned geocaches', labs: 'lab cache stops', pois: 'points of interest', route: 'route segments', status: 'county statuses', hroutes: 'trip route segments', htrails: 'trails', hfound: 'found caches', hbrew: 'breweries', huntappd: 'Untappd breweries', hguster: 'Guster shows', hhikes: 'hikes', hparks: 'parks', itinerary: 'itinerary' };
 function importFile(file) {
   if (!file) return;
   if (file.size > 60 * 1024 * 1024) { toast('That file is too large for a phone (over 60 MB).'); return; }
@@ -1516,7 +1573,7 @@ function importFile(file) {
     if (!got.length) throw new Error('No map layers were found in that file.');
     if (!put.built) put.built = new Date().toISOString().slice(0, 10);
     return idbPut(put).then(function () {
-      var msg = got.map(function (k) { var n = Array.isArray(put[k]) ? put[k].length : Object.keys(put[k]).length; return n.toLocaleString() + ' ' + NAMES[k]; }).join(', ');
+      var msg = got.map(function (k) { if (k === 'itinerary') return 'the itinerary (' + ((put[k].days || []).length) + ' days)'; var n = Array.isArray(put[k]) ? put[k].length : Object.keys(put[k]).length; return n.toLocaleString() + ' ' + NAMES[k]; }).join(', ');
       store.set('flash', 'Loaded ' + msg); location.reload();
     });
   }).catch(function (err) {
@@ -1527,11 +1584,326 @@ function showWelcome() {
   openSheet(head('Trip Planning Map', 'Load your trip data') + '<p class="note">This phone has no map data yet. Choose the trip data file you saved to Files or iCloud Drive. It stays on this phone and is never uploaded.</p><div class="row"><button class="btn primary" type="button" data-act="pick">Choose data file</button></div>');
 }
 
+/* ---------- itinerary ---------- */
+/*
+  D.itin = { name, days: [ { id, date, depart, start: place|null, end: place|null, stops: [stop], route: {key, legs, line, src} } ] }
+  place = { name, x, y, stop (type) }
+  stop  = place + { id, stay (min), arrive ('HH:MM' fixed, optional), leave ('HH:MM' fixed, optional), hours, notes, kind }
+*/
+var STAY = { 1: 60, 2: 120, 3: 0, 4: 45, 5: 60, 6: 30, 7: 180, cache: 15, lab: 20 };
+var curDay = 0, itinTimer = null, routing = {};
+function itin() { return D.itin; }
+function hm(s) { if (!s || !/^\d{1,2}:\d{2}$/.test(s)) return null; var p = s.split(':'); return +p[0] * 60 + +p[1]; }
+function clock(m) {
+  if (m == null || !isFinite(m)) return '';
+  var d = Math.floor(m / 1440), r = Math.round(m) % 1440; if (r < 0) r += 1440;
+  var h = Math.floor(r / 60), mm = r % 60, ap = h < 12 ? 'AM' : 'PM', h12 = h % 12 || 12;
+  return h12 + ':' + (mm < 10 ? '0' : '') + mm + ' ' + ap + (d > 0 ? ' +' + d + 'd' : '');
+}
+function dur(min) { if (min == null) return ''; min = Math.round(min); return min < 60 ? min + ' min' : Math.floor(min / 60) + ' h ' + (min % 60 ? (min % 60) + ' min' : ''); }
+function dayLabel(d, i) {
+  if (!d.date) return 'Day ' + (i + 1);
+  var p = d.date.split('-'), t = new Date(+p[0], +p[1] - 1, +p[2]);
+  return t.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+}
+function saveItin() {
+  clearTimeout(itinTimer);
+  itinTimer = setTimeout(function () { idbPut({ itinerary: D.itin }).catch(function () { toast('The itinerary could not be saved on this device.'); }); }, 300);
+}
+function waypoints(day) {
+  var w = []; if (day.start) w.push(day.start);
+  day.stops.forEach(function (s) { w.push(s); });
+  if (day.end) w.push(day.end);
+  return w;
+}
+function wkey(day) { return waypoints(day).map(function (p) { return p.x.toFixed(5) + ',' + p.y.toFixed(5); }).join(';'); }
+
+/* schedule: walk the day from the start time, adding drive times and stays */
+function schedule(day) {
+  var out = { stops: [], end: null }, legs = day.route && day.route.key === wkey(day) ? day.route.legs : null;
+  var li = 0, t = hm(day.depart);
+  if (day.start == null) t = null;
+  var legAt = function () { var l = legs ? legs[li] : null; li++; return l; };
+  day.stops.forEach(function (s, i) {
+    var leg = (day.start || i > 0) ? legAt() : null, eta = null;
+    if (t != null) eta = t + (leg ? leg.min : 0);
+    if (day.start == null && i === 0) eta = hm(s.arrive);
+    var fa = hm(s.arrive), arrive = eta != null ? (fa != null ? Math.max(eta, fa) : eta) : fa;
+    var fl = hm(s.leave), leave = fl != null ? fl : (arrive != null ? arrive + (s.stay != null ? +s.stay : 0) : null);
+    out.stops.push({ leg: leg, eta: eta, arrive: arrive, leave: leave, late: fa != null && eta != null && eta > fa + 1 ? eta - fa : 0,
+                     short: fl != null && arrive != null && fl < arrive + 5 });
+    t = leave;
+  });
+  if (day.end) { var leg = legAt(); out.endLeg = leg; out.end = t != null && leg ? t + leg.min : t; }
+  return out;
+}
+
+/* ---------- routing ---------- */
+function orsKey() { return store.get('orsKey', ''); }
+function estLegs(w) {
+  var legs = [], line = [];
+  for (var i = 0; i + 1 < w.length; i++) {
+    var km = haversineKm(w[i].y, w[i].x, w[i + 1].y, w[i + 1].x) * 1.25;
+    legs.push({ mi: km / 1.609344, min: km / 1.609344 / 50 * 60 + 5, a: line.length, b: line.length + 1 });
+    if (!line.length) line.push([w[i].y, w[i].x]);
+    line.push([w[i + 1].y, w[i + 1].x]);
+  }
+  return { legs: legs, line: line, src: 'est' };
+}
+function haversineKm(a, b, c, d) {
+  var R = 6371, p1 = a * Math.PI / 180, p2 = c * Math.PI / 180, dp = p2 - p1, dl = (d - b) * Math.PI / 180;
+  return 2 * R * Math.asin(Math.sqrt(Math.sin(dp / 2) * Math.sin(dp / 2) + Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) * Math.sin(dl / 2)));
+}
+function routeDay(day, force) {
+  var w = waypoints(day), key = wkey(day);
+  if (w.length < 2) { day.route = null; return Promise.resolve(); }
+  if (!force && day.route && day.route.key === key && day.route.src === 'ors') return Promise.resolve();
+  var k = orsKey();
+  var finish = function (r) { delete routing[day.id]; r.key = key; day.route = r; r.legs.forEach(function (l, i) { l.counties = legCounties(r.line.slice(l.a, l.b + 1)); }); saveItin(); drawItin(); renderItin(); };
+  if (!k || IN_PREVIEW || navigator.onLine === false) { finish(estLegs(w)); return Promise.resolve(); }
+  if (routing[day.id]) return routing[day.id];
+  var ctrl = window.AbortController ? new AbortController() : null, timer = setTimeout(function () { if (ctrl) ctrl.abort(); }, 20000);
+  routing[day.id] = fetch('https://api.openrouteservice.org/v2/directions/driving-car/geojson', {
+    method: 'POST', signal: ctrl ? ctrl.signal : undefined,
+    headers: { 'Authorization': k, 'Content-Type': 'application/json', 'Accept': 'application/geo+json, application/json' },
+    body: JSON.stringify({ coordinates: w.map(function (p) { return [p.x, p.y]; }), radiuses: w.map(function () { return 2000; }) })
+  }).then(function (r) {
+    if (r.status === 401 || r.status === 403) throw new Error('OpenRouteService did not accept the key. Check it in Itinerary settings.');
+    if (r.status === 429) throw new Error('OpenRouteService daily limit reached. Using estimates for now.');
+    if (!r.ok) return r.json().then(function (j) { throw new Error((j && j.error && (j.error.message || j.error)) || ('OpenRouteService error ' + r.status)); }, function () { throw new Error('OpenRouteService error ' + r.status); });
+    return r.json();
+  }).then(function (j) {
+    var f = j.features[0], coords = f.geometry.coordinates, segs = f.properties.segments || [];
+    var line = coords.map(function (c) { return [+c[1].toFixed(5), +c[0].toFixed(5)]; }), legs = [], a = 0;
+    var wp = f.properties.way_points || [];
+    segs.forEach(function (s, i) {
+      var b = wp[i + 1] != null ? wp[i + 1] : a;
+      legs.push({ mi: s.distance / 1609.344, min: s.duration / 60, a: a, b: b }); a = b;
+    });
+    while (legs.length < w.length - 1) legs.push({ mi: 0, min: 0, a: a, b: a });
+    finish({ legs: legs, line: line, src: 'ors' });
+  }).catch(function (e) {
+    finish(estLegs(w));
+    toast(e && e.name === 'AbortError' ? 'Routing took too long. Using estimates for now.' : (e && e.message && /OpenRouteService/.test(e.message) ? e.message : 'Could not reach OpenRouteService. Using estimates for now.'));
+  }).then(function () { clearTimeout(timer); delete routing[day.id]; });
+  return routing[day.id];
+}
+function scheduleRoute(day) { clearTimeout(day._rt); day._rt = setTimeout(function () { routeDay(day); }, 900); }
+
+/* counties a leg passes through, with Not Found ones and the planned caches in them */
+var cacheCounty = null;
+function legCounties(line) {
+  var seen = {}, order = [], last = null, step = 1.5;
+  var visit = function (lat, lon) {
+    if (last && inCounty(last, mx(lon), my(lat))) return;
+    var c = countyAt(lat, lon); last = c;
+    if (c && !seen[c.id]) { seen[c.id] = 1; order.push(c.id); }
+  };
+  for (var i = 0; i < line.length; i++) {
+    visit(line[i][0], line[i][1]);
+    if (i + 1 < line.length) {
+      var km = haversineKm(line[i][0], line[i][1], line[i + 1][0], line[i + 1][1]), n = Math.floor(km / step);
+      for (var k = 1; k <= n; k++) visit(line[i][0] + (line[i + 1][0] - line[i][0]) * k / (n + 1), line[i][1] + (line[i + 1][1] - line[i][1]) * k / (n + 1));
+    }
+  }
+  return order;
+}
+function cachesIn(id) {
+  if (!cacheCounty) { cacheCounty = {}; D.caches.forEach(function (c) { var k = countyAt(c.y, c.x); if (k) (cacheCounty[k.id] = cacheCounty[k.id] || []).push(c); }); }
+  return cacheCounty[id] || [];
+}
+function legNote(leg) {
+  if (!leg || !leg.counties) return '';
+  var nf = leg.counties.map(byId).filter(function (c) { return c && eff(c) === 2; });
+  if (!nf.length) return '';
+  var nc = 0; nf.forEach(function (c) { nc += cachesIn(c.id).length; });
+  return nf.length + ' Not Found ' + (nf.length === 1 ? 'county' : 'counties') + ': ' + nf.map(shortName).join(', ') + (nc ? ' · ' + nc + ' planned caches' : ' · no planned caches');
+}
+
+/* ---------- itinerary on the map ---------- */
+function drawItin() {
+  store.set('curDay', curDay);
+  var g = groups.itin; if (!g) return; g.clearLayers();
+  (D.itin.days || []).forEach(function (d, i) {
+    if (!d.route || !d.route.line || d.route.line.length < 2) return;
+    var on = i === curDay;
+    g.addLayer(L.polyline(d.route.line, { renderer: visitCanvas, color: on ? css('--itin') : css('--itin-other'), weight: on ? 5 : 3, opacity: on ? 0.95 : 0.7,
+      dashArray: d.route.src === 'est' ? '2 8' : null, interactive: false }));
+  });
+  var d = D.itin.days[curDay];
+  if (d) waypoints(d).forEach(function (p, j) {
+    g.addLayer(L.marker([p.y, p.x], { interactive: false, keyboard: false, zIndexOffset: 500,
+      icon: L.divIcon({ className: '', iconSize: [22, 22], iconAnchor: [11, 30], html: '<div class="wpnum">' + (d.start && j === 0 ? 'S' : d.end && j === waypoints(d).length - 1 ? 'E' : (d.start ? j : j + 1)) + '</div>' }) }));
+  });
+}
+
+/* ---------- itinerary panel ---------- */
+function openItin() { document.body.classList.add('itin-open'); $('itin').hidden = false; closeSheet(); if (!D.itin.days.length) addDay(); renderItin(); setTimeout(function () { map.invalidateSize(); }, 50); }
+function closeItin() { document.body.classList.remove('itin-open'); $('itin').hidden = true; setTimeout(function () { map.invalidateSize(); }, 50); }
+function addDay() {
+  var days = D.itin.days, prev = days[days.length - 1], date = '';
+  if (prev && prev.date) { var p = prev.date.split('-'), t = new Date(+p[0], +p[1] - 1, +p[2] + 1); date = t.getFullYear() + '-' + ('0' + (t.getMonth() + 1)).slice(-2) + '-' + ('0' + t.getDate()).slice(-2); }
+  days.push({ id: Date.now(), date: date, depart: prev ? prev.depart : '08:00', start: prev && prev.end ? JSON.parse(JSON.stringify(prev.end)) : null, end: null, stops: [], route: null });
+  curDay = days.length - 1; saveItin();
+}
+function placeOf(kind, f) {
+  var stop = kind === 'pois' ? f.stop : kind === 'hbrew' || kind === 'huntappd' ? 1 : kind === 'hhikes' ? 2 : kind === 'hparks' ? 4 : kind === 'hguster' ? 7 : 6;
+  return { name: f.name || f.code || 'Stop', x: f.x, y: f.y, stop: stop, kind: kind, code: f.code || null, url: f.url || null };
+}
+function addToItin(kind, f, where) {
+  if (!D.itin.days.length) addDay();
+  var day = D.itin.days[curDay], p = placeOf(kind, f);
+  if (where === 'start') day.start = p;
+  else if (where === 'end') day.end = p;
+  else {
+    p.id = Date.now(); p.stay = STAY[kind === 'caches' ? 'cache' : kind === 'labs' ? 'lab' : p.stop] != null ? STAY[kind === 'caches' ? 'cache' : kind === 'labs' ? 'lab' : p.stop] : 30;
+    p.notes = kind === 'pois' && f.notes ? f.notes : null; day.stops.push(p);
+  }
+  saveItin(); drawItin(); scheduleRoute(day);
+  toast((where === 'start' ? 'Start of ' : where === 'end' ? 'End of ' : 'Added to ') + dayLabel(day, curDay));
+  if (!$('itin').hidden) renderItin();
+}
+function renderItin() {
+  var el = $('itin'); if (el.hidden) return;
+  var I = D.itin, day = I.days[curDay], h = '';
+  h += '<div class="itin-head"><input id="itinName" class="itin-name" type="text" placeholder="Trip name" value="' + esc(I.name || '') + '" aria-label="Trip name">' +
+       '<button class="x" type="button" data-it="close" aria-label="Close itinerary">×</button></div>';
+  h += '<div class="daytabs" role="tablist">';
+  I.days.forEach(function (d, i) { h += '<button type="button" role="tab" data-it="day" data-i="' + i + '" aria-selected="' + (i === curDay) + '">' + esc(dayLabel(d, i)) + '</button>'; });
+  h += '<button type="button" data-it="addday" aria-label="Add a day">+ Day</button></div>';
+  if (day) {
+    var sc = schedule(day), totMi = 0, totMin = 0;
+    if (day.route && day.route.key === wkey(day)) day.route.legs.forEach(function (l) { totMi += l.mi; totMin += l.min; });
+    h += '<div class="dayrow"><label>Date <input type="date" id="dDate" value="' + esc(day.date || '') + '"></label>' +
+         '<label>Leave at <input type="time" id="dDepart" value="' + esc(day.depart || '') + '"></label></div>';
+    var today = new Date(), iso = today.getFullYear() + '-' + ('0' + (today.getMonth() + 1)).slice(-2) + '-' + ('0' + today.getDate()).slice(-2);
+    if (day.date === iso) {
+      var now = today.getHours() * 60 + today.getMinutes(), nx = null;
+      sc.stops.forEach(function (s, i) { if (nx == null && s.leave != null && s.leave >= now) nx = i; });
+      if (nx != null) h += '<div class="today">Today · next: <b>' + esc(day.stops[nx].name) + '</b> ' + (sc.stops[nx].arrive > now ? 'arrive ' + clock(sc.stops[nx].arrive) : 'leave by ' + clock(sc.stops[nx].leave)) + '</div>';
+    }
+    h += '<ol class="plan">';
+    h += placeRow(day.start, 'start', clock(hm(day.depart)) ? 'Leave ' + clock(hm(day.depart)) : '');
+    day.stops.forEach(function (s, i) {
+      var r = sc.stops[i];
+      if (r.leg) h += legRow(r.leg, day);
+      h += '<li class="stop' + (r.late ? ' late' : '') + '"><div class="when">' + (r.arrive != null ? clock(r.arrive) : '') + (r.leave != null && r.leave !== r.arrive ? '<br><span>' + clock(r.leave) + '</span>' : '') + '</div>' +
+        '<div class="what"><b>' + (STOPS[s.stop] && s.kind !== 'caches' && s.kind !== 'labs' ? '<i class="ic">' + STOPS[s.stop][1] + '</i>' : '') + esc(s.name) + '</b>' +
+        (r.late ? '<div class="warn">Arrives ' + clock(r.eta) + ', ' + dur(r.late) + ' after the ' + clock(hm(s.arrive)) + ' plan</div>' : '') +
+        (r.short ? '<div class="warn">Less than 5 minutes here</div>' : '') +
+        (s.hours ? '<div class="pnote">Hours: ' + esc(s.hours) + '</div>' : '') + (s.notes ? '<div class="pnote">' + esc(s.notes) + '</div>' : '') + '</div>' +
+        '<div class="acts"><button type="button" data-it="edit" data-i="' + i + '" aria-label="Edit ' + esc(s.name) + '">Edit</button></div></li>';
+    });
+    if (day.end) h += legRow(sc.endLeg, day);
+    h += placeRow(day.end, 'end', sc.end != null && day.end ? 'Arrive ' + clock(sc.end) : '');
+    h += '</ol>';
+    if (!day.stops.length && !day.start) h += '<p class="note">Tap a hotel, brewery, cache or any place on the map, then use Start day, Add stop or End day in its pop-up.</p>';
+    h += '<div class="daytot">' + (totMi ? Math.round(totMi) + ' mi · ' + dur(totMin) + ' driving' : '') + (day.route && day.route.src === 'est' && day.route.key === wkey(day) ? ' <span class="est">estimate</span>' : '') +
+      (routing[day.id] ? ' <span class="est">updating…</span>' : '') + '</div>';
+    h += '<div class="row"><button class="btn" type="button" data-it="route">Update drive times</button><button class="btn" type="button" data-it="delday">Delete this day</button></div>';
+  }
+  h += '<h3 class="sub">Trip</h3><div class="row"><button class="btn primary" type="button" data-it="savefile">Save itinerary file</button><button class="btn" type="button" data-it="saveroutes">Save routes for Pro</button></div>' +
+       '<p class="note">Save the itinerary file to your shared folder, then load it on the phones with Layers &gt; Load a data file. Routes for Pro is GeoJSON for the JSON To Features tool.</p>';
+  h += '<details class="ors"><summary>Drive times setup</summary><label for="orsKey">OpenRouteService key</label><input id="orsKey" type="text" autocomplete="off" spellcheck="false" value="' + esc(orsKey()) + '">' +
+       '<p class="note">' + (orsKey() ? 'Key saved on this device.' : 'Without a key, drive times are straight-line estimates at 50 mph, shown as a dotted line.') + ' Only the computer you plan on needs the key; the phones get the routes in the itinerary file.</p></details>';
+  el.innerHTML = h;
+}
+function placeRow(p, which, when) {
+  if (!p) return '<li class="ends empty"><div class="when"></div><div class="what">' + (which === 'start' ? 'No start yet' : 'No end yet') + ' <small>· tap a place, then ' + (which === 'start' ? 'Start day' : 'End day') + '</small></div></li>';
+  return '<li class="ends"><div class="when">' + esc(when.replace(/^(Leave|Arrive) /, '')) + '</div><div class="what"><span class="kicker">' + (which === 'start' ? 'Start' : 'End') + '</span><b>' + esc(p.name) + '</b></div>' +
+    '<div class="acts"><button type="button" data-it="clear' + which + '" aria-label="Remove ' + which + '">×</button></div></li>';
+}
+function legRow(leg, day) {
+  if (!leg) return '';
+  var note = legNote(leg);
+  return '<li class="leg"><div class="when"></div><div class="what">' + Math.round(leg.mi) + ' mi · ' + dur(leg.min) + (note ? '<div class="nf">' + esc(note) + '</div>' : '') + '</div></li>';
+}
+function editStop(i) {
+  var day = D.itin.days[curDay], s = day.stops[i]; if (!s) return;
+  var h = head(dayLabel(day, curDay) + ' · stop ' + (i + 1), s.name) +
+    '<div class="form"><label>Name <input id="sName" type="text" value="' + esc(s.name) + '"></label>' +
+    '<label>Stay (minutes) <input id="sStay" type="number" min="0" step="5" value="' + esc(s.stay != null ? s.stay : '') + '"></label>' +
+    '<label>Arrive at (fixed, optional) <input id="sArrive" type="time" value="' + esc(s.arrive || '') + '"></label>' +
+    '<label>Leave by (fixed, optional) <input id="sLeave" type="time" value="' + esc(s.leave || '') + '"></label>' +
+    '<label>Open hours <input id="sHours" type="text" placeholder="e.g. 12–9 PM, closed Mon" value="' + esc(s.hours || '') + '"></label>' +
+    '<label>Notes <textarea id="sNotes" rows="3">' + esc(s.notes || '') + '</textarea></label></div>' +
+    '<div class="row"><button class="btn primary" type="button" data-act="stopsave" data-i="' + i + '">Save</button>' +
+    '<button class="btn" type="button" data-act="stopup" data-i="' + i + '"' + (i ? '' : ' disabled') + '>Move up</button>' +
+    '<button class="btn" type="button" data-act="stopdown" data-i="' + i + '"' + (i < day.stops.length - 1 ? '' : ' disabled') + '>Move down</button></div>' +
+    '<div class="row"><button class="btn" type="button" data-act="stopmove" data-i="' + i + '"' + (D.itin.days.length > 1 ? '' : ' disabled') + '>Move to another day</button>' +
+    '<button class="btn" type="button" data-act="stopdel" data-i="' + i + '">Remove</button></div>';
+  sheet._point = null; openSheet(h);
+  map.panTo([s.y, s.x]);
+}
+function stopAction(act, i) {
+  var day = D.itin.days[curDay], s = day.stops[i]; if (!s) return;
+  if (act === 'stopsave') {
+    var v = function (id) { return ($(id).value || '').trim(); };
+    s.name = v('sName') || s.name; s.stay = v('sStay') === '' ? null : Math.max(0, +v('sStay')); s.arrive = v('sArrive') || null; s.leave = v('sLeave') || null;
+    s.hours = v('sHours') || null; s.notes = v('sNotes') || null; closeSheet(); toast('Saved');
+  } else if (act === 'stopup' && i > 0) { day.stops.splice(i - 1, 0, day.stops.splice(i, 1)[0]); editStop(i - 1); scheduleRoute(day); }
+  else if (act === 'stopdown' && i < day.stops.length - 1) { day.stops.splice(i + 1, 0, day.stops.splice(i, 1)[0]); editStop(i + 1); scheduleRoute(day); }
+  else if (act === 'stopdel') { day.stops.splice(i, 1); closeSheet(); scheduleRoute(day); toast('Removed ' + s.name); }
+  else if (act === 'stopmove') {
+    var h = head('Move ' + s.name, 'To which day?') + '<ul class="changes">';
+    D.itin.days.forEach(function (d, j) { if (j !== curDay) h += '<li><button class="link" type="button" data-act="stopto" data-i="' + i + '" data-j="' + j + '" style="text-decoration:none;color:var(--fg)">' + esc(dayLabel(d, j)) + '</button><span>' + d.stops.length + ' stops</span></li>'; });
+    openSheet(h + '</ul>'); return;
+  }
+  saveItin(); drawItin(); renderItin();
+}
+function itinFile() {
+  var I = JSON.parse(JSON.stringify(D.itin)); I.days.forEach(function (d) { delete d._rt; });
+  return JSON.stringify({ itinerary: I, built: new Date().toISOString().slice(0, 10) });
+}
+function routesGeoJSON() {
+  var fs = [];
+  D.itin.days.forEach(function (d, i) {
+    if (!d.route || !d.route.line) return;
+    d.route.legs.forEach(function (l, j) {
+      var w = waypoints(d), seg = d.route.line.slice(l.a, l.b + 1);
+      if (seg.length < 2) return;
+      fs.push({ type: 'Feature', geometry: { type: 'LineString', coordinates: seg.map(function (p) { return [p[1], p[0]]; }) },
+        properties: { TRIP: D.itin.name || '', DAY: i + 1, DATE: d.date || '', LEG: j + 1, FROM_NAME: w[j] ? w[j].name : '', TO_NAME: w[j + 1] ? w[j + 1].name : '',
+          MILES: Math.round(l.mi * 10) / 10, MINUTES: Math.round(l.min), SOURCE: d.route.src === 'ors' ? 'OpenRouteService' : 'Estimate' } });
+    });
+  });
+  return JSON.stringify({ type: 'FeatureCollection', features: fs });
+}
+function wireItin() {
+  var el = $('itin');
+  el.addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-it]'); if (!b) return;
+    var a = b.getAttribute('data-it'), day = D.itin.days[curDay];
+    if (a === 'close') closeItin();
+    else if (a === 'day') { curDay = +b.getAttribute('data-i'); drawItin(); renderItin(); var d = D.itin.days[curDay], w = waypoints(d); if (w.length) map.fitBounds(L.latLngBounds(w.map(function (p) { return [p.y, p.x]; })), { padding: [40, 40], maxZoom: 12 }); }
+    else if (a === 'addday') { addDay(); drawItin(); renderItin(); }
+    else if (a === 'edit') editStop(+b.getAttribute('data-i'));
+    else if (a === 'clearstart' && day) { day.start = null; saveItin(); scheduleRoute(day); renderItin(); drawItin(); }
+    else if (a === 'clearend' && day) { day.end = null; saveItin(); scheduleRoute(day); renderItin(); drawItin(); }
+    else if (a === 'route' && day) { routeDay(day, true); renderItin(); }
+    else if (a === 'delday' && day) {
+      if (b.getAttribute('data-sure') !== '1') { b.setAttribute('data-sure', '1'); b.textContent = 'Tap again to delete'; return; }
+      D.itin.days.splice(curDay, 1); curDay = Math.max(0, curDay - 1); saveItin(); drawItin(); renderItin();
+    }
+    else if (a === 'savefile') saveText((D.itin.name ? D.itin.name.replace(/[^\w-]+/g, '_') + '_' : '') + 'itinerary.json', itinFile(), function () { toast('Itinerary saved'); });
+    else if (a === 'saveroutes') saveText((D.itin.name ? D.itin.name.replace(/[^\w-]+/g, '_') + '_' : '') + 'routes.geojson', routesGeoJSON(), function () { toast('Routes saved'); });
+  });
+  el.addEventListener('change', function (ev) {
+    var t = ev.target, day = D.itin.days[curDay];
+    if (t.id === 'itinName') { D.itin.name = t.value.trim(); saveItin(); }
+    else if (t.id === 'dDate' && day) { day.date = t.value; saveItin(); renderItin(); }
+    else if (t.id === 'dDepart' && day) { day.depart = t.value; saveItin(); renderItin(); }
+    else if (t.id === 'orsKey') { store.set('orsKey', t.value.trim()); toast(t.value.trim() ? 'Key saved on this device' : 'Key removed'); D.itin.days.forEach(function (d) { routeDay(d, true); }); }
+  });
+}
+
 /* ---------- boot ---------- */
 function start(data) { loadIcons().then(function () { start2(data); }); }
 function start2(data) {
   D = { counties: data.counties || [], caches: data.caches || [], labs: data.labs || [], pois: data.pois || [], route: data.route || [], built: data.built || '', hist: {} };
   HKEYS.forEach(function (k) { D.hist[k] = data[k] || []; });
+  D.itin = data.itinerary && data.itinerary.days ? data.itinerary : { name: '', days: [] };
+  curDay = Math.min(store.get('curDay', 0), Math.max(0, D.itin.days.length - 1));
   var st = data.status || null;
   D.counties.forEach(function (c) { prepCounty(c); if (st && st[c.id] != null) c.g = +st[c.id]; });
   for (var k in edits) { var c = byId(k); if (c && edits[k].g === c.g) delete edits[k]; }
