@@ -735,6 +735,16 @@ svg.leaflet-image-layer.leaflet-interactive path {
   body.itin-open .topleft { left: 436px; }
   body.itin-open .sheet { left: 436px; }
 }
+.search { display: flex; gap: 8px; margin-top: 12px; }
+.search input { flex: 1; min-width: 0; font: inherit; font-size: 16px; color: var(--fg); background: var(--panel); border: 2px solid var(--line); border-radius: 10px; min-height: 44px; padding: 0 10px; }
+.results { list-style: none; margin: 8px 0 0; padding: 0; }
+.results li { display: flex; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); }
+.results .rname { flex: 1; min-width: 0; display: flex; gap: 8px; align-items: center; text-align: left; border: 0; background: none; padding: 4px 0; }
+.results .rname span { min-width: 0; display: flex; flex-direction: column; }
+.results .rname small { color: var(--muted); overflow-wrap: anywhere; }
+.results .ic svg { width: 20px; height: 20px; display: block; }
+.results .btn { min-height: 40px; }
+.form select { font: inherit; font-size: 16px; color: var(--fg); background: var(--panel); border: 2px solid var(--line); border-radius: 10px; min-height: 44px; padding: 0 8px; }
 .itin-head { display: flex; gap: 10px; align-items: center; }
 .itin-name { flex: 1; min-width: 0; font: inherit; font-size: 20px; font-weight: 700; border: 0; border-bottom: 2px solid var(--line); background: none; color: var(--fg); padding: 6px 0; }
 .daytabs { display: flex; gap: 6px; overflow-x: auto; margin: 12px -16px 0; padding: 0 16px 4px; }
@@ -1150,16 +1160,27 @@ function markVisited(f) {
   saveVisits(); toast((f.name || 'Stop') + ' marked visited');
 }
 function removeVisit(id) { visits = visits.filter(function (v) { return String(v.id) !== String(id); }); saveVisits(); }
-function addPlaceForm(ll) {
+function addPlaceForm(ll, name, type) {
   sheet._ll = ll;
-  var h = head('Add a place you visited', 'Here') + '<label class="kicker" for="vName" style="display:block;margin-top:14px">Name</label>' +
+  var dl = D.itin.days.length ? dayLabel(D.itin.days[curDay], curDay) : 'Day 1';
+  var h = head('Pin at ' + ll.lat.toFixed(4) + ', ' + ll.lng.toFixed(4), 'Add a place') + '<label class="kicker" for="vName" style="display:block;margin-top:14px">Name</label>' +
     '<input id="vName" type="text" autocomplete="off" style="width:100%;min-height:44px;font:inherit;border:2px solid var(--line);border-radius:10px;padding:0 10px;background:var(--panel);color:var(--fg)">' +
     '<div class="kicker" style="margin-top:12px">Type</div><div class="seg" id="vType" style="grid-template-columns:repeat(3,1fr)">';
-  VISIT_TYPES.forEach(function (t, i) { h += '<button type="button" data-act="vtype" data-t="' + t + '" aria-pressed="' + (i === 0) + '">' + esc(STOPS[t][0].replace('/Trailhead', '').replace('/Garden/Viewpoint', '')) + '</button>'; });
+  var ty = type || 6;
+  if (VISIT_TYPES.indexOf(3) < 0) VISIT_TYPES.splice(2, 0, 3);
+  VISIT_TYPES.forEach(function (t, i) { h += '<button type="button" data-act="vtype" data-t="' + t + '" aria-pressed="' + (t === ty) + '">' + esc(STOPS[t][0].replace('/Trailhead', '').replace('/Garden/Viewpoint', '')) + '</button>'; });
   h += '</div><label class="kicker" for="vNotes" style="display:block;margin-top:12px">Notes (optional)</label>' +
     '<input id="vNotes" type="text" autocomplete="off" style="width:100%;min-height:44px;font:inherit;border:2px solid var(--line);border-radius:10px;padding:0 10px;background:var(--panel);color:var(--fg)">' +
-    '<div class="row"><button class="btn primary" type="button" data-act="addvisit">Save as visited</button></div><p class="note">Saved with the time now. It goes to ArcGIS Pro with your other visits.</p>';
+    '<div class="kicker" style="margin-top:14px">Itinerary · ' + esc(dl) + '</div><div class="row" style="margin-top:6px"><button class="btn primary" type="button" data-act="pinadd">Add stop</button>' +
+    '<button class="btn" type="button" data-act="pinstart">Start day</button><button class="btn" type="button" data-act="pinend">End day</button></div>' +
+    '<div class="row"><button class="btn" type="button" data-act="addvisit">Save as visited now</button></div>';
   openSheet(h);
+  if (name) $('vName').value = name;
+}
+function pinPlace() {
+  var nm = ($('vName').value || '').trim(); if (!nm) { toast('Give the place a name'); $('vName').focus(); return null; }
+  var tb = sheet.querySelector('[data-act=vtype][aria-pressed=true]');
+  return { name: nm, x: +sheet._ll.lng.toFixed(5), y: +sheet._ll.lat.toFixed(5), stop: tb ? +tb.getAttribute('data-t') : 6, notes: ($('vNotes').value || '').trim() || null };
 }
 
 /* ---------- basemaps ---------- */
@@ -1186,6 +1207,7 @@ function setBasemap(id) {
 /* ---------- tapping ---------- */
 var KIND = { pois: 'Point of interest', caches: 'Planned cache', labs: 'Lab cache', hfound: 'Found cache', hbrew: 'Brewery visited', huntappd: 'Untappd top brewery', hguster: 'Guster show', hhikes: 'Hike completed', hparks: 'Park or viewpoint', hroutes: 'Trip route', htrails: 'Trail hiked' };
 function onTap(ev) {
+  sheet._tapLL = ev.latlng;
   var hits = [], cp = ev.containerPoint, R2 = 22 * 22;
   function scan(arr, kind) {
     for (var i = 0; i < arr.length; i++) {
@@ -1242,7 +1264,8 @@ function editNote(c) {
   return '<div class="note"><span>' + (e.done ? 'Changed on this phone and already saved to a file.' : 'Changed on this phone from ' + STATUS[e.was] + '. Not saved to a file yet.') + '</span><button class="link" type="button" data-act="undo" data-id="' + esc(c.id) + '">Undo</button></div>';
 }
 function showCounty(c) {
-  openSheet(head(c.c === 'CA' ? 'Canada census division' : 'US county', fullName(c)) + segHtml(c) + editNote(c));
+  openSheet(head(c.c === 'CA' ? 'Canada census division' : 'US county', fullName(c)) + segHtml(c) + editNote(c) +
+    (sheet._tapLL ? '<div class="row"><button class="btn" type="button" data-act="pinhere">Add a place at this spot</button></div>' : ''));
 }
 function row(k, v) { return (v == null || v === '') ? '' : '<dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd>'; }
 function showPoint(kind, f) {
@@ -1453,6 +1476,12 @@ function wire() {
     else if (act === 'addhere') addPlaceForm(hereLatLng());
     else if (act === 'savevisitsall') saveVisitsCsv(true);
     else if (act === 'vtype') { sheet.querySelectorAll('[data-act=vtype]').forEach(function (x) { x.setAttribute('aria-pressed', x === b); }); }
+    else if ((act === 'pinadd' || act === 'pinstart' || act === 'pinend') && sheet._ll) {
+      var pp = pinPlace(); if (!pp) return;
+      if (sheet._src === 'search' && sheet._addr) pp.addr = sheet._addr;
+      addToItin(sheet._src || 'pin', pp, act === 'pinstart' ? 'start' : act === 'pinend' ? 'end' : 'stop'); sheet._src = null; sheet._addr = null; closeSheet();
+    }
+    else if (act === 'pinhere' && sheet._tapLL) addPlaceForm(sheet._tapLL);
     else if (act === 'addvisit' && sheet._ll) {
       var nm = ($('vName').value || '').trim(); if (!nm) { toast('Give the place a name'); $('vName').focus(); return; }
       var tb = sheet.querySelector('[data-act=vtype][aria-pressed=true]');
@@ -1590,6 +1619,48 @@ function showWelcome() {
   place = { name, x, y, stop (type) }
   stop  = place + { id, stay (min), arrive ('HH:MM' fixed, optional), leave ('HH:MM' fixed, optional), hours, notes, kind }
 */
+var lastQuery = '', lastResults = [];
+function guessType(name, cats) {
+  var n = (name || '').toLowerCase(), c = (cats || []).join(' ');
+  if (/brew|taproom|ale ?house|beer|cider|distill/.test(n)) return 1;
+  if (/hotel|inn\b|motel|suites|lodge|resort|hampton|marriott|hilton|hyatt|courtyard|residence/.test(n) || /accommodation/.test(c)) return 3;
+  if (/trail|trailhead|hike/.test(n)) return 2;
+  if (/park|garden|overlook|viewpoint|falls|state forest|preserve/.test(n) || /recreation|nature/.test(c)) return 4;
+  if (/restaurant|diner|grill|cafe|café|pizza|bbq|kitchen|bistro|tavern/.test(n) || /food/.test(c)) return 5;
+  if (/theat|amphithea|arena|music hall|ballroom|pavilion|venue/.test(n)) return 7;
+  return 6;
+}
+function searchPlaces(q) {
+  q = (q || '').trim(); lastQuery = q; if (!q) return;
+  var box = $('plResults');
+  if (!orsKey()) { box.innerHTML = '<p class="note">Search uses your OpenRouteService key. Add it under Drive times setup below.</p>'; return; }
+  box.innerHTML = '<p class="note">Searching…</p>';
+  var c = map.getCenter();
+  var url = 'https://api.openrouteservice.org/geocode/search?api_key=' + encodeURIComponent(orsKey()) + '&text=' + encodeURIComponent(q) +
+    '&size=8&boundary.country=US,CA&focus.point.lat=' + c.lat.toFixed(4) + '&focus.point.lon=' + c.lng.toFixed(4);
+  fetch(url).then(function (r) {
+    if (r.status === 401 || r.status === 403) throw new Error('OpenRouteService did not accept the key.');
+    if (r.status === 429) throw new Error('Search limit reached for today. Drop a pin instead.');
+    if (!r.ok) throw new Error('Search failed (' + r.status + ').');
+    return r.json();
+  }).then(function (j) {
+    lastResults = (j.features || []).map(function (f) {
+      var p = f.properties || {}, g = f.geometry.coordinates;
+      return { name: p.name || p.label, addr: p.label, x: +g[0].toFixed(5), y: +g[1].toFixed(5), stop: guessType(p.name, p.category) };
+    });
+    renderResults();
+  }).catch(function (e) { box.innerHTML = '<p class="note">' + esc(e && e.message && !/fetch/i.test(e.message) ? e.message : 'Could not reach the search. Check your connection, or drop a pin instead.') + '</p>'; });
+}
+function renderResults() {
+  var box = $('plResults'); if (!box) return;
+  if (!lastResults.length) { box.innerHTML = lastQuery ? '<p class="note">Nothing found. Try adding the town, or drop a pin.</p>' : ''; return; }
+  var h = '<ul class="results">';
+  lastResults.forEach(function (r, i) {
+    h += '<li><button type="button" class="rname" data-it="rshow" data-i="' + i + '"><i class="ic">' + STOPS[r.stop][1] + '</i><span><b>' + esc(r.name) + '</b><small>' + esc(r.addr && r.addr !== r.name ? r.addr : '') + '</small></span></button>' +
+         '<button class="btn" type="button" data-it="radd" data-i="' + i + '">Add</button></li>';
+  });
+  box.innerHTML = h + '</ul><p class="note">Add opens the place so you can check its type and choose stop, start or end.</p>';
+}
 var STAY = { 1: 60, 2: 120, 3: 0, 4: 45, 5: 60, 6: 30, 7: 180, cache: 15, lab: 20 };
 var curDay = 0, itinTimer = null, routing = {};
 function itin() { return D.itin; }
@@ -1747,8 +1818,8 @@ function addDay() {
   curDay = days.length - 1; saveItin();
 }
 function placeOf(kind, f) {
-  var stop = kind === 'pois' ? f.stop : kind === 'hbrew' || kind === 'huntappd' ? 1 : kind === 'hhikes' ? 2 : kind === 'hparks' ? 4 : kind === 'hguster' ? 7 : 6;
-  return { name: f.name || f.code || 'Stop', x: f.x, y: f.y, stop: stop, kind: kind, code: f.code || null, url: f.url || null };
+  var stop = kind === 'pois' || kind === 'search' || kind === 'pin' ? (f.stop || 6) : kind === 'hbrew' || kind === 'huntappd' ? 1 : kind === 'hhikes' ? 2 : kind === 'hparks' ? 4 : kind === 'hguster' ? 7 : 6;
+  return { name: f.name || f.code || 'Stop', x: f.x, y: f.y, stop: stop, kind: kind, code: f.code || null, url: f.url || null, addr: f.addr || null };
 }
 function addToItin(kind, f, where) {
   if (!D.itin.days.length) addDay();
@@ -1757,7 +1828,7 @@ function addToItin(kind, f, where) {
   else if (where === 'end') day.end = p;
   else {
     p.id = Date.now(); p.stay = STAY[kind === 'caches' ? 'cache' : kind === 'labs' ? 'lab' : p.stop] != null ? STAY[kind === 'caches' ? 'cache' : kind === 'labs' ? 'lab' : p.stop] : 30;
-    p.notes = kind === 'pois' && f.notes ? f.notes : null; day.stops.push(p);
+    p.notes = (kind === 'pois' || kind === 'pin' || kind === 'search') && f.notes ? f.notes : null; if (f.addr) p.addr = f.addr; day.stops.push(p);
   }
   saveItin(); drawItin(); scheduleRoute(day);
   toast((where === 'start' ? 'Start of ' : where === 'end' ? 'End of ' : 'Added to ') + dayLabel(day, curDay));
@@ -1768,6 +1839,9 @@ function renderItin() {
   var I = D.itin, day = I.days[curDay], h = '';
   h += '<div class="itin-head"><input id="itinName" class="itin-name" type="text" placeholder="Trip name" value="' + esc(I.name || '') + '" aria-label="Trip name">' +
        '<button class="x" type="button" data-it="close" aria-label="Close itinerary">×</button></div>';
+  h += '<div class="search"><input id="plSearch" type="search" placeholder="Search for a place to add" autocomplete="off" aria-label="Search for a place" value="' + esc(lastQuery) + '">' +
+       '<button class="btn" type="button" data-it="search">Search</button></div><div id="plResults"></div>' +
+       '<div class="row" style="margin-top:6px"><button class="btn" type="button" data-it="pincenter">Drop a pin at the map centre</button></div>';
   h += '<div class="daytabs" role="tablist">';
   I.days.forEach(function (d, i) { h += '<button type="button" role="tab" data-it="day" data-i="' + i + '" aria-selected="' + (i === curDay) + '">' + esc(dayLabel(d, i)) + '</button>'; });
   h += '<button type="button" data-it="addday" aria-label="Add a day">+ Day</button></div>';
@@ -1803,7 +1877,8 @@ function renderItin() {
     h += '<div class="row"><button class="btn" type="button" data-it="route">Update drive times</button><button class="btn" type="button" data-it="delday">Delete this day</button></div>';
   }
   h += '<h3 class="sub">Trip</h3><div class="row"><button class="btn primary" type="button" data-it="savefile">Save itinerary file</button><button class="btn" type="button" data-it="saveroutes">Save routes for Pro</button></div>' +
-       '<p class="note">Save the itinerary file to your shared folder, then load it on the phones with Layers &gt; Load a data file. Routes for Pro is GeoJSON for the JSON To Features tool.</p>';
+       '<div class="row"><button class="btn" type="button" data-it="savestops">Save places for Pro</button></div>' +
+       '<p class="note">Save the itinerary file to your shared folder, then load it on the phones with Layers &gt; Load a data file. Routes and places for Pro are GeoJSON for the JSON To Features tool; places carry STOP_TYPE, NAME, URL and NOTES so they append to Planned_Points_of_Interest.</p>';
   h += '<details class="ors"><summary>Drive times setup</summary><label for="orsKey">OpenRouteService key</label><input id="orsKey" type="text" autocomplete="off" spellcheck="false" value="' + esc(orsKey()) + '">' +
        '<p class="note">' + (orsKey() ? 'Key saved on this device.' : 'Without a key, drive times are straight-line estimates at 50 mph, shown as a dotted line.') + ' Only the computer you plan on needs the key; the phones get the routes in the itinerary file.</p></details>';
   el.innerHTML = h;
@@ -1822,6 +1897,7 @@ function editStop(i) {
   var day = D.itin.days[curDay], s = day.stops[i]; if (!s) return;
   var h = head(dayLabel(day, curDay) + ' · stop ' + (i + 1), s.name) +
     '<div class="form"><label>Name <input id="sName" type="text" value="' + esc(s.name) + '"></label>' +
+    '<label>Type <select id="sType">' + [1, 2, 3, 4, 5, 6, 7].map(function (t) { return '<option value="' + t + '"' + (s.stop === t ? ' selected' : '') + '>' + esc(STOPS[t][0]) + '</option>'; }).join('') + '</select></label>' +
     '<label>Stay (minutes) <input id="sStay" type="number" min="0" step="5" value="' + esc(s.stay != null ? s.stay : '') + '"></label>' +
     '<label>Arrive at (fixed, optional) <input id="sArrive" type="time" value="' + esc(s.arrive || '') + '"></label>' +
     '<label>Leave by (fixed, optional) <input id="sLeave" type="time" value="' + esc(s.leave || '') + '"></label>' +
@@ -1839,7 +1915,7 @@ function stopAction(act, i) {
   var day = D.itin.days[curDay], s = day.stops[i]; if (!s) return;
   if (act === 'stopsave') {
     var v = function (id) { return ($(id).value || '').trim(); };
-    s.name = v('sName') || s.name; s.stay = v('sStay') === '' ? null : Math.max(0, +v('sStay')); s.arrive = v('sArrive') || null; s.leave = v('sLeave') || null;
+    s.name = v('sName') || s.name; s.stop = +v('sType') || s.stop; s.stay = v('sStay') === '' ? null : Math.max(0, +v('sStay')); s.arrive = v('sArrive') || null; s.leave = v('sLeave') || null;
     s.hours = v('sHours') || null; s.notes = v('sNotes') || null; closeSheet(); toast('Saved');
   } else if (act === 'stopup' && i > 0) { day.stops.splice(i - 1, 0, day.stops.splice(i, 1)[0]); editStop(i - 1); scheduleRoute(day); }
   else if (act === 'stopdown' && i < day.stops.length - 1) { day.stops.splice(i + 1, 0, day.stops.splice(i, 1)[0]); editStop(i + 1); scheduleRoute(day); }
@@ -1869,6 +1945,20 @@ function routesGeoJSON() {
   });
   return JSON.stringify({ type: 'FeatureCollection', features: fs });
 }
+function stopsGeoJSON() {
+  var fs = [];
+  D.itin.days.forEach(function (d, i) {
+    var sc = schedule(d), add = function (p, role, s) {
+      if (!p) return;
+      fs.push({ type: 'Feature', geometry: { type: 'Point', coordinates: [p.x, p.y] }, properties: {
+        STOP_TYPE: p.stop || 6, NAME: p.name || '', URL: p.url || '', NOTES: [p.hours ? 'Hours: ' + p.hours : '', p.notes || '', p.addr || ''].filter(Boolean).join(' | '),
+        TRIP: D.itin.name || '', DAY: i + 1, DATE: d.date || '', ROLE: role, ARRIVE: s && s.arrive != null ? clock(s.arrive) : '', LEAVE: s && s.leave != null ? clock(s.leave) : '',
+        SOURCE: p.kind === 'search' ? 'Search' : p.kind === 'pin' ? 'Pin' : 'Map data' } });
+    };
+    add(d.start, 'Start', null); d.stops.forEach(function (s, j) { add(s, 'Stop ' + (j + 1), sc.stops[j]); }); add(d.end, 'End', null);
+  });
+  return JSON.stringify({ type: 'FeatureCollection', features: fs });
+}
 function wireItin() {
   var el = $('itin');
   el.addEventListener('click', function (ev) {
@@ -1885,9 +1975,15 @@ function wireItin() {
       if (b.getAttribute('data-sure') !== '1') { b.setAttribute('data-sure', '1'); b.textContent = 'Tap again to delete'; return; }
       D.itin.days.splice(curDay, 1); curDay = Math.max(0, curDay - 1); saveItin(); drawItin(); renderItin();
     }
+    else if (a === 'search') searchPlaces($('plSearch').value);
+    else if (a === 'rshow') { var r = lastResults[+b.getAttribute('data-i')]; if (r) map.setView([r.y, r.x], Math.max(map.getZoom(), 14)); }
+    else if (a === 'radd') { var r2 = lastResults[+b.getAttribute('data-i')]; if (r2) { map.setView([r2.y, r2.x], Math.max(map.getZoom(), 13)); addPlaceForm(L.latLng(r2.y, r2.x), r2.name, r2.stop); sheet._src = 'search'; sheet._addr = r2.addr; } }
+    else if (a === 'pincenter') addPlaceForm(map.getCenter());
+    else if (a === 'savestops') saveText((D.itin.name ? D.itin.name.replace(/[^\w-]+/g, '_') + '_' : '') + 'stops.geojson', stopsGeoJSON(), function () { toast('Places saved'); });
     else if (a === 'savefile') saveText((D.itin.name ? D.itin.name.replace(/[^\w-]+/g, '_') + '_' : '') + 'itinerary.json', itinFile(), function () { toast('Itinerary saved'); });
     else if (a === 'saveroutes') saveText((D.itin.name ? D.itin.name.replace(/[^\w-]+/g, '_') + '_' : '') + 'routes.geojson', routesGeoJSON(), function () { toast('Routes saved'); });
   });
+  el.addEventListener('keydown', function (ev) { if (ev.target.id === 'plSearch' && ev.key === 'Enter') { ev.preventDefault(); searchPlaces(ev.target.value); } });
   el.addEventListener('change', function (ev) {
     var t = ev.target, day = D.itin.days[curDay];
     if (t.id === 'itinName') { D.itin.name = t.value.trim(); saveItin(); }
