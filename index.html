@@ -780,6 +780,16 @@ body.drag-stop, body.drag-stop * { -webkit-user-select: none !important; user-se
 .plan .grip { touch-action: none; cursor: grab; min-width: 32px; padding: 0 6px; background: none !important; color: var(--muted); }
 .plan .grip svg { width: 12px; height: 20px; fill: currentColor; display: block; margin: auto; }
 .plan .grip:active { cursor: grabbing; }
+.plan .acts a.nav { display: inline-flex; align-items: center; justify-content: center; min-height: 36px; min-width: 36px; border-radius: 8px; background: var(--panel-2); color: var(--accent); }
+.plan .acts a.nav svg, .btn svg.nv { width: 18px; height: 18px; fill: currentColor; display: block; }
+.btn svg.nv { margin-right: 6px; }
+.today { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
+.today .btn { min-height: 38px; padding: 0 12px; flex: none; }
+.bkup { margin-top: 12px; }
+.bkup dl { margin-top: 0; }
+.form label.check { align-items: flex-start; }
+.form label.check input { flex: none; margin: 1px 0 0; }
+
 .plan.dragging .leg { display: none; }
 .plan.dragging li.stop { transition: transform 0.15s ease; }
 .plan li.stop.lifted { transition: none; position: relative; z-index: 2; background: var(--panel); box-shadow: var(--shadow); border-radius: 10px; }
@@ -1340,7 +1350,7 @@ function showPoint(kind, f) {
     (eff(c) === 1 ? '' : '<button class="btn primary" type="button" data-act="set" data-id="' + esc(c.id) + '" data-g="1" data-stay="1">Mark county found</button>') + '</div>';
   var url = f.url && /^https?:\/\//i.test(f.url) ? f.url : null;
   h += '<div class="row">' + (url ? '<a class="btn" href="' + esc(url) + '" target="_blank" rel="noopener">Open web page</a>' : '') +
-    '<button class="btn" type="button" data-act="copy" data-text="' + esc(f.y.toFixed(5) + ', ' + f.x.toFixed(5)) + '">Copy coordinates</button></div>';
+    '<button class="btn" type="button" data-act="copy" data-text="' + esc(f.y.toFixed(5) + ', ' + f.x.toFixed(5)) + '">Copy coordinates</button>' + navLink(f, 'drive') + '</div>';
   var dl = D.itin.days.length ? dayLabel(D.itin.days[curDay], curDay) : 'Day 1';
   h += '<div class="kicker" style="margin-top:14px">Itinerary · ' + esc(dl) + '</div><div class="row" style="margin-top:6px"><button class="btn" type="button" data-act="itadd">Add stop</button>' +
        '<button class="btn" type="button" data-act="itstart">Start day</button><button class="btn" type="button" data-act="itend">End day</button></div>';
@@ -1407,7 +1417,8 @@ function showLayers() {
     BASEMAPS.forEach(function (b) { h += '<li><label for="base-' + b.id + '"><input type="radio" name="base" id="base-' + b.id + '" data-base="' + b.id + '"' + (b.id === baseId ? ' checked' : '') + '><span>' + esc(b.name) + (b.note ? ' <small>· ' + esc(b.note) + '</small>' : '') + '</span></label></li>'; });
     h += '</ul><p class="note">Basemaps need a signal. Areas you have already looked at stay available without one.</p>';
   }
-  if (!IN_PREVIEW) h += '<div class="row"><button class="btn" type="button" data-act="pick">Load a data file</button></div><p class="note">' + (D.built ? 'Trip data from ' + esc(D.built) + '. ' : '') + 'Loading a file replaces only the layers that file contains. County changes made on this phone are kept.</p>';
+  if (!IN_PREVIEW) h += '<div class="row"><button class="btn" type="button" data-act="pick">Load a data file</button></div><p class="note">' + (D.built ? 'Trip data from ' + esc(D.built) + '. ' : '') + 'Loading a file replaces only the layers that file contains. County changes made on this phone are kept.</p>' +
+    '<div class="row"><button class="btn" type="button" data-act="backupsheet">Back up or restore</button></div>';
   openSheet(h);
 }
 function changeList() {
@@ -1424,6 +1435,7 @@ function csvText(rows) {
   return out.join('\r\n') + '\r\n';
 }
 function showExport() {
+  var tail = '<h3 class="sub">Backup</h3><p class="note">Last backup of this phone: ' + esc(ago(store.get('lastBackup', null))) + '.</p><div class="row"><button class="btn" type="button" data-act="backupsheet">Back up or restore</button></div>';
   var rows = changeList(), pend = rows.filter(function (r) { return !r.e.done; });
   var h = head('Changes to save', pend.length ? pend.length + (pend.length === 1 ? ' county change' : ' county changes') : 'No new county changes');
   if (!rows.length) h += '<p class="note">Tap a county and pick Found, Not Found or Hidden. Each change is listed here until you save it to a file for ArcGIS Pro.</p>';
@@ -1444,7 +1456,7 @@ function showExport() {
     h += '</ul><div class="row"><button class="btn primary" type="button" data-act="savevisits"' + (vp.length ? '' : ' disabled') + '>Save new visits as CSV</button><button class="btn" type="button" data-act="savevisitsall">Save all ' + vs.length + '</button></div>' +
       '<p class="note">Give this file to Close Out Trip in ArcGIS Pro along with your GPS tracks.</p>';
   }
-  openSheet(h);
+  openSheet(h + tail);
 }
 function saveText(name, text, done) {
   if (IN_PREVIEW) {
@@ -1454,7 +1466,7 @@ function saveText(name, text, done) {
     }).catch(function (err) { if (err && err.code === 'declined') toast('Not saved'); else showCsvText(text); });
   } else {
     try {
-      var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' })); a.download = name;
+      var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: /\.json$/.test(name) ? 'application/json' : /\.geojson$/.test(name) ? 'application/geo+json' : 'text/csv' })); a.download = name;
       document.body.appendChild(a); a.click(); a.remove(); done();
     } catch (e) { showCsvText(text); }
   }
@@ -1553,6 +1565,9 @@ function wire() {
     }
     else if (act === 'saveall') saveCsv(true);
     else if (act === 'pick') $('filePick').click();
+    else if (act === 'backupsheet') showBackup();
+    else if (act === 'backup') saveBackup();
+    else if (act === 'restoreok') applyRestore();
     else if (act === 'hit' && sheet._hits) openHit(sheet._hits[+b.getAttribute('data-i')]);
     else if (act === 'copycsv') copyText(csvText(changeList()), 'Copied');
     else if (act === 'copy') copyText(b.getAttribute('data-text'), 'Coordinates copied');
@@ -1661,13 +1676,14 @@ function importFile(file) {
   toast('Reading ' + file.name + '…');
   file.text().then(function (txt) {
     var j = JSON.parse(txt), put = {};
+    if (j && j.geocations === 'backup') { showRestore(j); return; }
     if (j && j.type === 'FeatureCollection') put = fromGeoJSON(j);
     else if (j && typeof j === 'object') LAYERS.forEach(function (k) { if (j[k] != null) put[k] = j[k]; });
     var got = Object.keys(put).filter(function (k) { return NAMES[k]; });
     if (!got.length) throw new Error('No map layers were found in that file.');
     if (!put.built) put.built = new Date().toISOString().slice(0, 10);
     return idbPut(put).then(function () {
-      var msg = got.map(function (k) { if (k === 'itinerary') return 'the itinerary (' + ((put[k].days || []).length) + ' days)'; var n = Array.isArray(put[k]) ? put[k].length : Object.keys(put[k]).length; return n.toLocaleString() + ' ' + NAMES[k]; }).join(', ');
+      var msg = got.map(function (k) { if (k === 'itinerary') { var nd = (put[k].days || []).length; return 'the itinerary (' + nd + (nd === 1 ? ' day)' : ' days)'); } var n = Array.isArray(put[k]) ? put[k].length : Object.keys(put[k]).length; return n.toLocaleString() + ' ' + NAMES[k]; }).join(', ');
       store.set('flash', 'Loaded ' + msg); location.reload();
     });
   }).catch(function (err) {
@@ -1780,6 +1796,110 @@ function schedule(day) {
 
 /* ---------- routing ---------- */
 function orsKey() { return store.get('orsKey', ''); }
+
+/* ---------- directions in Google Maps or Apple Maps ---------- */
+var NAV_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.7 2.3a1 1 0 0 0-1.1-.2l-18 8a1 1 0 0 0 .1 1.9l7.4 2 2 7.4a1 1 0 0 0 1.9.1l8-18a1 1 0 0 0-.3-1.2z"/></svg>';
+function navApp() { return store.get('navApp', 'google') === 'apple' ? 'apple' : 'google'; }
+function ll(p) { return (+p.y).toFixed(5) + ',' + (+p.x).toFixed(5); }
+function navUrl(p, how) {
+  how = MODES[how] ? how : 'drive';
+  if (navApp() === 'apple') return 'https://maps.apple.com/?daddr=' + ll(p) + '&dirflg=' + (how === 'walk' ? 'w' : 'd');
+  return 'https://www.google.com/maps/dir/?api=1&destination=' + ll(p) + '&travelmode=' + ({ drive: 'driving', walk: 'walking', bike: 'bicycling' })[how];
+}
+function navLink(p, how, cls, label) {
+  if (!p || p.x == null || p.y == null) return '';
+  var t = 'Directions to ' + (p.name || 'this place');
+  if (cls === 'nav') return '<a class="nav" href="' + esc(navUrl(p, how)) + '" target="_blank" rel="noopener" aria-label="' + esc(t) + '" title="' + esc(t) + '">' + NAV_SVG + '</a>';
+  return '<a class="btn' + (cls ? ' ' + cls : '') + '" href="' + esc(navUrl(p, how)) + '" target="_blank" rel="noopener"><svg class="nv" viewBox="0 0 24 24" aria-hidden="true"><path d="M21.7 2.3a1 1 0 0 0-1.1-.2l-18 8a1 1 0 0 0 .1 1.9l7.4 2 2 7.4a1 1 0 0 0 1.9.1l8-18a1 1 0 0 0-.3-1.2z"/></svg>' + esc(label || 'Directions') + '</a>';
+}
+function dayNavUrl(day) {                  // Google Maps takes the start, the end and up to 9 stops between
+  var w = waypoints(day); if (w.length < 2) return null;
+  var last = w[w.length - 1], mid = w.slice(1, -1).slice(0, 9);
+  var how = modeOf(last) === 'walk' ? 'walking' : modeOf(last) === 'bike' ? 'bicycling' : 'driving';
+  return 'https://www.google.com/maps/dir/?api=1&origin=' + ll(w[0]) + '&destination=' + ll(last) + (mid.length ? '&waypoints=' + mid.map(ll).join('%7C') : '') + '&travelmode=' + how;
+}
+
+/* ---------- back up and restore everything on this phone ---------- */
+function pl(n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); }
+function backupCounts(b) {
+  var I = b.itinerary || { days: [] };
+  return { days: (I.days || []).length, stops: (I.days || []).reduce(function (n, d) { return n + (d.stops || []).filter(function (x) { return !isNote(x); }).length; }, 0),
+    books: (I.bookings || []).length, exps: (I.expenses || []).length, edits: Object.keys(b.edits || {}).length, visits: (b.visits || []).length };
+}
+function backupText(withKey) {
+  var I = JSON.parse(JSON.stringify(D.itin)); (I.days || []).forEach(function (d) { delete d._rt; });
+  var b = { geocations: 'backup', version: 1, saved: new Date().toISOString(), itinerary: I, edits: edits, visits: visits,
+    settings: { show: show, mode: mode, basemap: store.get('basemap', null), itinView: itinView, navApp: navApp() } };
+  if (withKey && orsKey()) b.settings.orsKey = orsKey();
+  return JSON.stringify(b);
+}
+function ago(iso) {
+  if (!iso) return 'never';
+  var d = new Date(iso), days = Math.floor((Date.now() - d.getTime()) / 86400000);
+  var when = d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return when + (days >= 1 ? ' (' + days + (days === 1 ? ' day' : ' days') + ' ago)' : '');
+}
+function showBackup() {
+  var n = backupCounts({ itinerary: D.itin, edits: edits, visits: visits }), last = store.get('lastBackup', null);
+  var h = head('This phone', 'Back up or restore') +
+    '<p class="note">A backup is one file with everything you have entered on this phone: the itinerary, bookings, expenses, county changes, visits and settings. Save it to your shared folder. The map layers are not in it; they come from your trip data file.</p>' +
+    '<div class="bkup"><dl>' + row('Itinerary', pl(n.days, 'day') + ', ' + pl(n.stops, 'stop')) +
+    row('Bookings and expenses', pl(n.books, 'booking') + ', ' + pl(n.exps, 'expense')) + row('County changes', n.edits) + row('Visits', n.visits) + row('Last backup', ago(last)) + '</dl></div>' +
+    '<div class="form" style="margin-top:12px"><label class="check"><input id="bkKey" type="checkbox"' + (orsKey() ? '' : ' disabled') + '> Include my OpenRouteService key</label></div>' +
+    '<p class="note">Include the key when the backup is for setting up another phone. Leave it out for a file you share with others.</p>' +
+    '<div class="row"><button class="btn primary" type="button" data-act="backup">Back up now</button>' + (IN_PREVIEW ? '' : '<button class="btn" type="button" data-act="pick">Restore from a backup</button>') + '</div>';
+  sheet._point = null; openSheet(h);
+}
+function saveBackup() {
+  var withKey = $('bkKey') && $('bkKey').checked, text = backupText(withKey);
+  var name = 'geocations_backup_' + todayIso() + '.json';
+  var done = function () { store.set('lastBackup', new Date().toISOString()); showBackup(); toast('Backup saved'); };
+  // on a phone, the share sheet offers Save to Files, Google Drive or OneDrive; elsewhere the file downloads
+  var file = null;
+  try { if (!IN_PREVIEW && window.File && navigator.canShare && window.matchMedia('(pointer: coarse)').matches) { file = new File([text], name, { type: 'application/json' }); if (!navigator.canShare({ files: [file] })) file = null; } } catch (e) { file = null; }
+  if (file) {
+    navigator.share({ files: [file], title: name }).then(done, function (err) { if (err && err.name === 'AbortError') toast('Backup not saved'); else saveText(name, text, done); });
+  } else saveText(name, text, done);
+}
+function showRestore(b) {
+  var n = backupCounts(b), here = backupCounts({ itinerary: D.itin, edits: edits, visits: visits }), S = b.settings || {};
+  var chk = function (id, on, label, sub) { return '<label class="check"><input id="' + id + '" type="checkbox"' + (on ? ' checked' : '') + '> <span>' + label + (sub ? '<br><small style="color:var(--muted)">' + sub + '</small>' : '') + '</span></label>'; };
+  var h = head('Restore a backup', 'Saved ' + ago(b.saved)) + '<div class="form">' +
+    chk('rsItin', n.days || n.books || n.exps, 'Itinerary · ' + pl(n.days, 'day') + ', ' + pl(n.books, 'booking') + ', ' + pl(n.exps, 'expense'),
+      (here.stops ? 'Replaces the ' + pl(here.days, 'day') + ' plan on this phone. ' : 'This phone has no plan yet. ') + 'Bookings and expenses on this phone that are not in the backup are kept.') +
+    chk('rsEdits', n.edits, 'County changes · ' + n.edits, 'Added to this phone. Where both have the same county, the newer change wins.') +
+    chk('rsVisits', n.visits, 'Visits · ' + n.visits, 'Added to this phone; visits already here are kept.') +
+    chk('rsSet', true, 'Settings' + (S.orsKey ? ' and the OpenRouteService key' : ''), 'Layers shown, basemap and where directions open.') +
+    '</div><div class="row"><button class="btn primary" type="button" data-act="restoreok">Restore</button><button class="btn" type="button" data-act="close">Cancel</button></div>';
+  sheet._restore = b; sheet._point = null; openSheet(h);
+}
+function applyRestore() {
+  var b = sheet._restore; if (!b) return;
+  var on = function (id) { var e = $(id); return e && e.checked; }, did = [], put = {};
+  if (on('rsItin') && b.itinerary) {
+    var I = b.itinerary, keep = function (mine, theirs) { var ids = {}; (theirs || []).forEach(function (x) { ids[String(x.id)] = 1; }); return (theirs || []).concat((mine || []).filter(function (x) { return !ids[String(x.id)]; })); };
+    I.bookings = keep(D.itin.bookings, I.bookings); I.expenses = keep(D.itin.expenses, I.expenses);
+    put.itinerary = I; did.push('the itinerary');
+  }
+  if (on('rsEdits') && b.edits) {
+    var ne = 0; Object.keys(b.edits).forEach(function (id) { var t = b.edits[id], m = edits[id]; if (!m || (t.t || '') > (m.t || '')) { edits[id] = t; ne++; } });
+    store.set('edits', edits); did.push(ne + (ne === 1 ? ' county change' : ' county changes'));
+  }
+  if (on('rsVisits') && b.visits) {
+    var have = {}, nv = 0; visits.forEach(function (v) { have[String(v.id)] = 1; });
+    b.visits.forEach(function (v) { if (!have[String(v.id)]) { visits.push(v); nv++; } });
+    store.set('visits', visits); did.push(nv + (nv === 1 ? ' visit' : ' visits'));
+  }
+  if (on('rsSet') && b.settings) {
+    var S = b.settings;
+    if (S.show) store.set('show', S.show); if (S.mode) store.set('mode', S.mode); if (S.basemap) store.set('basemap', S.basemap);
+    if (S.itinView) store.set('itinView', S.itinView); if (S.navApp) store.set('navApp', S.navApp); if (S.orsKey) store.set('orsKey', S.orsKey);
+    did.push('settings');
+  }
+  if (!did.length) { toast('Nothing was chosen to restore'); return; }
+  var fin = function () { store.set('flash', 'Restored ' + did.join(', ')); location.reload(); };
+  if (put.itinerary) idbPut(put).then(fin, function () { toast('The itinerary could not be saved on this device.'); }); else fin();
+}
 function estLegs(w) {
   var legs = [], line = [];
   for (var i = 0; i + 1 < w.length; i++) {
@@ -1945,8 +2065,8 @@ function renderItin() {
     var today = new Date(), iso = today.getFullYear() + '-' + ('0' + (today.getMonth() + 1)).slice(-2) + '-' + ('0' + today.getDate()).slice(-2);
     if (day.date === iso) {
       var now = today.getHours() * 60 + today.getMinutes(), nx = null;
-      sc.stops.forEach(function (s, i) { if (nx == null && s.leave != null && s.leave >= now) nx = i; });
-      if (nx != null) h += '<div class="today">Today · next: <b>' + esc(day.stops[nx].name) + '</b> ' + (sc.stops[nx].arrive > now ? 'arrive ' + clock(sc.stops[nx].arrive) : 'leave by ' + clock(sc.stops[nx].leave)) + '</div>';
+      sc.stops.forEach(function (s, i) { if (nx == null && !s.note && s.leave != null && s.leave >= now) nx = i; });
+      if (nx != null) h += '<div class="today"><div>Today · next: <b>' + esc(day.stops[nx].name) + '</b> ' + (sc.stops[nx].arrive > now ? 'arrive ' + clock(sc.stops[nx].arrive) : 'leave by ' + clock(sc.stops[nx].leave)) + '</div>' + navLink(day.stops[nx], modeOf(day.stops[nx]), '', 'Go') + '</div>';
     }
     h += '<ol class="plan">';
     h += placeRow(day.start, 'start', clock(hm(day.depart)) ? 'Leave ' + clock(hm(day.depart)) : '');
@@ -1965,7 +2085,7 @@ function renderItin() {
         (r.late ? '<div class="warn">Arrives ' + clock(r.eta) + ', ' + dur(r.late) + ' after the ' + clock(hm(s.arrive)) + ' plan</div>' : '') +
         (r.short ? '<div class="warn">Less than 5 minutes here</div>' : '') +
         (s.hours ? '<div class="pnote">Hours: ' + esc(s.hours) + '</div>' : '') + (s.notes ? '<div class="pnote">' + esc(s.notes) + '</div>' : '') + '</div>' +
-        '<div class="acts"><button type="button" data-it="edit" data-i="' + i + '" aria-label="Edit ' + esc(s.name) + '">Edit</button>' +
+        '<div class="acts">' + navLink(s, modeOf(s), 'nav') + '<button type="button" data-it="edit" data-i="' + i + '" aria-label="Edit ' + esc(s.name) + '">Edit</button>' +
         (day.stops.length > 1 ? GRIP(i, s.name) : '') + '</div></li>';
     });
     if (day.end && wpIdx > 0) h += legRow(sc.endLeg, day, wpIdx, day.end);
@@ -1975,19 +2095,24 @@ function renderItin() {
     if (!day.stops.length && !day.start) h += '<p class="note">Tap a lodging, brewery, cache or any place on the map, then use Start day, Add stop or End day in its pop-up.</p>';
     h += '<div class="daytot">' + (totMi ? Math.round(totMi) + ' mi · ' + dur(totMin) + ' travelling' : '') + (day.route && day.route.src === 'est' && day.route.key === wkey(day) ? ' <span class="est">estimate</span>' + (day.route.why === 'nokey' ? '<div class="pnote">Dotted lines are straight-line estimates. Add the drive-times key on this device below for road routes.</div>' : '') : '') +
       (routing[day.id] ? ' <span class="est">updating…</span>' : '') + '</div>';
-    h += '<div class="row"><button class="btn" type="button" data-it="route">Update drive times</button><button class="btn" type="button" data-it="delday">Delete this day</button></div>';
+    var dn = dayNavUrl(day);
+    h += '<div class="row"><button class="btn" type="button" data-it="route">Update drive times</button>' + (dn ? '<a class="btn" href="' + esc(dn) + '" target="_blank" rel="noopener">Open day in Google Maps</a>' : '') + '</div>' +
+         '<div class="row"><button class="btn" type="button" data-it="delday">Delete this day</button></div>';
   }
   h += '<h3 class="sub">Trip</h3><div class="row"><button class="btn primary" type="button" data-it="savefile">Save itinerary file</button><button class="btn" type="button" data-it="saveroutes">Save routes for Pro</button></div>' +
        '<div class="row"><button class="btn" type="button" data-it="savestops">Save places for Pro</button></div>' +
        '<p class="note">Save the itinerary file to your shared folder, then load it on the phones with Layers &gt; Load a data file. Routes and places for Pro are GeoJSON for the JSON To Features tool; places carry STOP_TYPE, NAME, URL and NOTES so they append to Planned_Points_of_Interest.</p>';
-  h += '<details class="ors"><summary>Drive times setup</summary><label for="orsKey">OpenRouteService key</label><input id="orsKey" type="text" autocomplete="off" spellcheck="false" value="' + esc(orsKey()) + '">' +
+  h += '<details class="ors"><summary>Drive times and directions setup</summary>' +
+       '<label for="navApp">Directions open in</label><select id="navApp"><option value="google"' + (navApp() === 'google' ? ' selected' : '') + '>Google Maps</option><option value="apple"' + (navApp() === 'apple' ? ' selected' : '') + '>Apple Maps (iPhone)</option></select>' +
+       '<p class="note">Directions buttons hand the place to the maps app for turn-by-turn. Open day in Google Maps always uses Google, which takes up to 9 stops between the start and end.</p>' +
+       '<label for="orsKey">OpenRouteService key</label><input id="orsKey" type="text" autocomplete="off" spellcheck="false" value="' + esc(orsKey()) + '">' +
        '<p class="note">' + (orsKey() ? 'Key saved on this device.' : 'Without a key, drive times are straight-line estimates at 50 mph, shown as a dotted line.') + ' Add it on each device where you change the itinerary. Driving, walking and cycling are available; OpenRouteService has no public transit.</p></details>';
   el.innerHTML = h;
 }
 function placeRow(p, which, when) {
   if (!p) return '<li class="ends empty"><div class="when"></div><div class="what">' + (which === 'start' ? 'No start yet' : 'No end yet') + ' <small>· tap a place, then ' + (which === 'start' ? 'Start day' : 'End day') + '</small></div></li>';
   return '<li class="ends"><div class="when">' + esc(when.replace(/^(Leave|Arrive) /, '')) + '</div><div class="what"><span class="kicker">' + (which === 'start' ? 'Start' : 'End') + '</span><b>' + esc(p.name) + '</b></div>' +
-    '<div class="acts"><button type="button" data-it="clear' + which + '" aria-label="Remove ' + which + '">×</button></div></li>';
+    '<div class="acts">' + (which === 'end' ? navLink(p, modeOf(p), 'nav') : '') + '<button type="button" data-it="clear' + which + '" aria-label="Remove ' + which + '">×</button></div></li>';
 }
 function legRow(leg, day, j, dest) {
   var m = modeOf(dest), note = leg ? legNote(leg) : '';
@@ -2013,7 +2138,7 @@ function editStop(i) {
     '<label>Leave by (fixed, optional) <input id="sLeave" type="time" value="' + esc(s.leave || '') + '"></label>' +
     '<label>Open hours <input id="sHours" type="text" placeholder="e.g. 12–9 PM, closed Mon" value="' + esc(s.hours || '') + '"></label>' +
     '<label>Notes <textarea id="sNotes" rows="3">' + esc(s.notes || '') + '</textarea></label></div>' +
-    '<div class="row"><button class="btn primary" type="button" data-act="stopsave" data-i="' + i + '">Save</button>' +
+    '<div class="row"><button class="btn primary" type="button" data-act="stopsave" data-i="' + i + '">Save</button>' + navLink(s, modeOf(s)) +
     '</div>' +
     '<div class="row"><button class="btn" type="button" data-act="stopmove" data-i="' + i + '"' + (D.itin.days.length > 1 ? '' : ' disabled') + '>Move to another day</button>' +
     '<button class="btn" type="button" data-act="stopdel" data-i="' + i + '">Remove</button></div>';
@@ -2164,6 +2289,7 @@ function wireItin() {
       var wps = waypoints(day), dst = wps[+t.getAttribute('data-mode')];
       if (dst) { dst.mode = t.value === 'drive' ? undefined : t.value; if (!dst.mode) delete dst.mode; saveItin(); renderItin(); scheduleRoute(day); }
     }
+    else if (t.id === 'navApp') { store.set('navApp', t.value); toast('Directions open in ' + (t.value === 'apple' ? 'Apple Maps' : 'Google Maps')); renderItin(); var dt = $('itin').querySelector('details.ors'); if (dt) dt.open = true; }
     else if (t.id === 'orsKey') { store.set('orsKey', t.value.trim()); toast(t.value.trim() ? 'Key saved on this device' : 'Key removed'); D.itin.days.forEach(function (d) { routeDay(d, true); }); }
   });
 }
