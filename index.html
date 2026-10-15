@@ -1279,8 +1279,20 @@ function removeVisit(id) { visits = visits.filter(function (v) { return String(v
 function stopType(p) { return p.kind === 'caches' && p.stop === 6 ? 8 : p.kind === 'labs' && p.stop === 6 ? 9 : p.stop; }   // older plans stored caches as 6
 function stopVisits(p) { return visits.filter(function (v) { return (v.sid != null && String(v.sid) === String(p.id)) || (v.pk && p.kind === 'pois' && v.pk === poiKey(p)); }); }
 function stopDone(p) { return isCacheStop(p) ? !!p.done : stopVisits(p).length > 0; }
+function isGeocacheStop(p) { return !!p && (p.stop === 8 || (p.kind === 'caches' && p.stop === 6)); }   // a lab stop is not a geocache: it has no county
 function markStop(p, on) {
-  if (isCacheStop(p)) { p.done = !!on; if (!on) delete p.done; saveItin(); return; }
+  var msg = null;
+  if (isCacheStop(p)) {
+    if (on) {
+      p.done = true;
+      var c = isGeocacheStop(p) ? countyAt(p.y, p.x) : null;
+      if (c && eff(c) !== 1) { p.cty = { id: c.id, prev: eff(c) }; setStatus(c, 1); msg = fullName(c) + ' now Found'; }
+    } else {
+      delete p.done;
+      if (p.cty) { var c2 = byId(p.cty.id); if (c2 && eff(c2) === 1) { setStatus(c2, p.cty.prev); msg = fullName(c2) + ' back to ' + STATUS[p.cty.prev]; } delete p.cty; }
+    }
+    saveItin(); return msg;
+  }
   if (on) { if (!stopVisits(p).length) visits.push({ id: Date.now(), sid: p.id, pk: p.kind === 'pois' ? poiKey(p) : undefined, stop: p.stop, name: p.name, x: p.x, y: p.y, t: nowLocal(), url: p.url || null, notes: p.notes || null }); }
   else { var gone = stopVisits(p).map(function (v) { return String(v.id); }); visits = visits.filter(function (v) { return gone.indexOf(String(v.id)) < 0; }); }
   saveVisits();
@@ -2515,9 +2527,11 @@ function editStop(i) {
     '<div class="row"><button class="btn primary" type="button" data-act="stopsave" data-i="' + i + '">Save</button>' + navLink(s, modeOf(s)) +
     '</div>' + (function () {
       var cache = isCacheStop(s), v = stopVisits(s)[0];
-      if (stopDone(s)) return '<div class="incounty"><div><div class="kicker">' + (cache ? 'Found' : 'Visited') + '</div><b>' + esc(cache ? 'Marked on this phone' : v.t) + '</b></div><button class="link" type="button" data-act="stopunvisit" data-i="' + i + '">Undo</button></div>';
+      var gc = isGeocacheStop(s), cc = gc ? countyAt(s.y, s.x) : null;
+      if (stopDone(s)) return '<div class="incounty"><div><div class="kicker">' + (cache ? 'Found' : 'Visited') + '</div><b>' + esc(cache ? (s.cty && byId(s.cty.id) ? 'Marked on this phone \u00b7 ' + fullName(byId(s.cty.id)) + ' set to Found' : 'Marked on this phone') : v.t) + '</b></div><button class="link" type="button" data-act="stopunvisit" data-i="' + i + '">Undo</button></div>';
       return '<div class="row"><button class="btn" type="button" data-act="stopvisit" data-i="' + i + '">' + (cache ? 'Mark found' : 'Mark visited') + '</button></div>' +
-        (cache ? '<p class="note">A check mark for your plan only. The find reaches Pro from the iCaching CSV.</p>' : '');
+        (gc ? '<p class="note">' + (cc && eff(cc) !== 1 ? 'Also marks ' + esc(fullName(cc)) + ' Found. ' : '') + 'The find itself reaches Pro from the iCaching CSV.</p>'
+            : cache ? '<p class="note">A check mark for your plan only. Lab stops don\u2019t count toward county finds.</p>' : '');
     })() +
     '<div class="row"><button class="btn" type="button" data-act="stopmove" data-i="' + i + '"' + (D.itin.days.length > 1 ? '' : ' disabled') + '>Move to another day</button>' +
     '<button class="btn" type="button" data-act="stopdel" data-i="' + i + '">Remove</button></div>';
@@ -2527,8 +2541,8 @@ function editStop(i) {
 function stopAction(act, i) {
   var day = D.itin.days[curDay], s = day.stops[i]; if (!s) return;
   if (act === 'stopvisit' || act === 'stopunvisit') {
-    markStop(s, act === 'stopvisit'); drawItin(); renderItin(); editStop(i);
-    toast(act === 'stopvisit' ? s.name + (isCacheStop(s) ? ' marked found' : ' marked visited') : 'Undone');
+    var cm = markStop(s, act === 'stopvisit'); drawItin(); renderItin(); editStop(i);
+    toast((act === 'stopvisit' ? s.name + (isCacheStop(s) ? ' marked found' : ' marked visited') : 'Undone') + (cm ? ' \u00b7 ' + cm : ''));
     return;
   }
   if (act === 'stopsave' && isNote(s)) { s.text = ($('sNoteText').value || '').trim(); if (!s.text) day.stops.splice(i, 1); closeSheet(); toast(s.text ? 'Note saved' : 'Empty note removed'); }
