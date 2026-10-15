@@ -786,6 +786,49 @@ body.drag-stop, body.drag-stop * { -webkit-user-select: none !important; user-se
 .today { display: flex; gap: 10px; align-items: center; justify-content: space-between; }
 .today .btn { min-height: 38px; padding: 0 12px; flex: none; }
 .bkup { margin-top: 12px; }
+/* v14: a slimmer stop list */
+.plan li { grid-template-columns: 64px 1fr auto; gap: 8px; padding: 8px 0; }
+.plan li.leg { padding: 0 0 2px; }
+.plan .what[data-it] { cursor: pointer; border-radius: 6px; }
+.plan .what[data-it]:hover b, .plan .what[data-it]:focus-visible b { text-decoration: underline; }
+.plan .what[data-it]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.plan .acts { gap: 2px; }
+.plan .acts a.nav, .plan .acts button { min-height: 32px; min-width: 32px; padding: 0 6px; }
+.plan .acts a.nav { background: none; }
+.plan .acts a.nav svg { width: 17px; height: 17px; }
+.plan .grip { min-width: 28px !important; }
+.plan li.leg select.mode { border: 0; background: var(--panel-2); min-height: 0; height: 22px; line-height: 22px; padding: 0 2px 0 6px; border-radius: 6px; font-weight: 600; font-size: 12px; color: var(--muted); vertical-align: middle; }
+.plan li.leg .what { padding-top: 2px; padding-bottom: 2px; }
+.plan .what .wx { color: var(--muted); font-size: 13px; margin-top: 1px; }
+.plan .when .tz { display: block; font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: .04em; }
+.plan .tzjump { font-size: 12px; font-weight: 600; color: var(--accent); margin-top: 2px; }
+.search .pin { flex: none; width: 44px; padding: 0; }
+.search .pin svg { width: 20px; height: 20px; fill: currentColor; }
+.row.tight { margin-top: 10px; gap: 8px; }
+.row.tight .btn { min-height: 38px; font-size: 14px; padding: 0 12px; flex: 1 1 auto; }
+.link.small { font-size: 14px; padding: 6px 0; text-decoration: none; }
+.link.danger { color: var(--warn); }
+.daywx { margin-top: 10px; font-size: 14px; display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--fg); }
+.daywx span { white-space: nowrap; }
+.daywx .mut { color: var(--muted); }
+/* fuel */
+.fuel { margin-top: 6px; }
+.fuel .dayrow { gap: 8px; }
+.fuel .dayrow label { flex: 1 1 0; min-width: 0; }
+.fuel .dayrow input, .fuel .dayrow select { width: 100%; min-width: 0; box-sizing: border-box; }
+.fuel select { font: inherit; font-size: 16px; color: var(--fg); background: var(--panel); border: 2px solid var(--line); border-radius: 10px; min-height: 44px; padding: 0 6px; }
+/* stats */
+.stab { width: 100%; border-collapse: collapse; margin-top: 6px; font-variant-numeric: tabular-nums; font-size: 14px; }
+.stab td { padding: 7px 0; border-top: 1px solid var(--line); vertical-align: middle; }
+.stab td.n { text-align: right; white-space: nowrap; padding-left: 8px; }
+.stab td.bar2 { width: 34%; padding-left: 10px; }
+.stab .b { height: 6px; border-radius: 3px; background: var(--panel-2); overflow: hidden; }
+.stab .b i { display: block; height: 100%; background: var(--found); }
+.stab button { all: unset; cursor: pointer; font-weight: 600; }
+.stab button:focus-visible { outline: 2px solid var(--accent); }
+.seg2 { display: inline-flex; gap: 4px; background: var(--panel-2); border-radius: 10px; padding: 3px; margin-top: 8px; }
+.seg2 button { border: 0; background: none; border-radius: 8px; min-height: 32px; padding: 0 10px; font-weight: 600; color: var(--muted); }
+.seg2 button[aria-pressed="true"] { background: var(--panel); color: var(--fg); box-shadow: 0 1px 2px rgba(0,0,0,.15); }
 .bkup dl { margin-top: 0; }
 .form label.check { align-items: flex-start; }
 .form label.check input { flex: none; margin: 1px 0 0; }
@@ -813,6 +856,7 @@ body.drag-stop, body.drag-stop * { -webkit-user-select: none !important; user-se
 .tots span { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
 .tots b { font-size: 18px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .tots .over b { color: var(--warn); }
+.tots small { color: var(--muted); font-size: 12px; }
 .bar { height: 8px; border-radius: 4px; background: var(--panel-2); margin-top: 8px; overflow: hidden; }
 .bar i { display: block; height: 100%; background: var(--accent); }
 .ctab { width: 100%; border-collapse: collapse; margin-top: 6px; font-variant-numeric: tabular-nums; }
@@ -1509,6 +1553,7 @@ function showNotFound() {
     list.forEach(function (c) { h += '<li><button class="link" type="button" data-act="nfgo" data-id="' + esc(c.id) + '" style="text-decoration:none;color:var(--fg);text-align:left">' + esc(c.n) + '</button><span>' + esc(c.s) + '</span></li>'; });
     h += '</ul><p class="note">Tap a county to zoom to it.</p>';
   }
+  h += '<div class="row"><button class="btn" type="button" data-act="stats">Stats</button></div>';
   sheet._point = null; openSheet(h);
 }
 function refreshChrome() {
@@ -1566,6 +1611,10 @@ function wire() {
     else if (act === 'saveall') saveCsv(true);
     else if (act === 'pick') $('filePick').click();
     else if (act === 'backupsheet') showBackup();
+    else if (act === 'stats') showStats();
+    else if (act === 'nflist') showNotFound();
+    else if (act === 'statsort') { statSort = b.getAttribute('data-v'); store.set('statSort', statSort); var st = sheet.scrollTop; showStats(); sheet.scrollTop = st; }
+    else if (act === 'statgo') zoomState(b.getAttribute('data-k'));
     else if (act === 'backup') saveBackup();
     else if (act === 'restoreok') applyRestore();
     else if (act === 'hit' && sheet._hits) openHit(sheet._hits[+b.getAttribute('data-i')]);
@@ -1580,8 +1629,8 @@ function wire() {
     drawLabels();
   });
   $('btnLayers').addEventListener('click', showLayers);
-  $('tally').addEventListener('click', showNotFound);
-  $('tally').addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); showNotFound(); } });
+  $('tally').addEventListener('click', function () { if (mode === 'hist') showStats(); else showNotFound(); });
+  $('tally').addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); if (mode === 'hist') showStats(); else showNotFound(); } });
   $('btnItin').addEventListener('click', function () { if ($('itin').hidden) openItin(); else closeItin(); });
   wireItin();
   $('mPlan').addEventListener('click', function () { setMode('plan'); });
@@ -1775,24 +1824,49 @@ function wkey(day) { return waypoints(day).map(function (p, j) { return p.x.toFi
 
 /* schedule: walk the day from the start time, adding drive times and stays */
 function schedule(day) {
+  // The day is walked on one clock (the first place's), and every time is handed back in each place's own local time,
+  // so a day that crosses a time zone line shows the clocks you will see. Fixed times typed for a stop are its local time.
   var out = { stops: [], end: null }, legs = day.route && day.route.key === wkey(day) ? day.route.legs : null;
+  var w = waypoints(day), base = w.length ? zoneOff(day, w[0]) : 0, dz = function (p) { return p ? zoneOff(day, p) - base : 0; };
   var li = 0, t = hm(day.depart), seen = !!day.start;
   if (day.start == null) t = null;
   var legAt = function () { var l = legs ? legs[li] : null; li++; return l; };
   day.stops.forEach(function (s, i) {
     if (isNote(s)) { out.stops.push({ note: true }); return; }
+    var d = dz(s), loc = function (m) { return m == null ? null : m - d; }, sh = function (m) { return m == null ? null : m + d; };
     var first = !seen, leg = seen ? legAt() : null, eta = null; seen = true;
     if (t != null) eta = t + (leg ? leg.min : 0);
-    if (first) eta = hm(s.arrive);
-    var fa = hm(s.arrive), arrive = eta != null ? (fa != null ? Math.max(eta, fa) : eta) : fa;
-    var fl = hm(s.leave), leave = fl != null ? fl : (arrive != null ? arrive + (s.stay != null ? +s.stay : 0) : null);
-    out.stops.push({ leg: leg, eta: eta, arrive: arrive, leave: leave, late: fa != null && eta != null && eta > fa + 1 ? eta - fa : 0,
-                     short: fl != null && arrive != null && fl < arrive + 5 });
+    if (first) eta = loc(hm(s.arrive));
+    var fa = loc(hm(s.arrive)), arrive = eta != null ? (fa != null ? Math.max(eta, fa) : eta) : fa;
+    var fl = loc(hm(s.leave)), leave = fl != null ? fl : (arrive != null ? arrive + (s.stay != null ? +s.stay : 0) : null);
+    out.stops.push({ leg: leg, eta: sh(eta), arrive: sh(arrive), leave: sh(leave), late: fa != null && eta != null && eta > fa + 1 ? eta - fa : 0,
+                     short: fl != null && arrive != null && fl < arrive + 5, dz: d });
     t = leave;
   });
-  if (day.end) { var leg = legAt(); out.endLeg = leg; out.end = t != null && leg ? t + leg.min : t; }
+  if (day.end) { var leg = legAt(), de = dz(day.end); out.endLeg = leg; out.end = t != null && leg ? t + leg.min + de : (t != null ? t + de : t); out.endDz = de; }
+  out.zones = zoneSet(day);
   return out;
 }
+/* time zone offsets: minutes ahead of UTC for a place on the day's date (DST included) */
+var offCache = {};
+function zoneOff(day, p) {
+  var tz = TZ[tzKey(p)]; if (!tz) return 0;
+  var date = day.date || todayIso(), k = tz + '|' + date;
+  if (offCache[k] != null) return offCache[k];
+  var off = 0;
+  try {
+    var q = date.split('-'), ms = Date.UTC(+q[0], +q[1] - 1, +q[2], 12), v = {};
+    new Intl.DateTimeFormat('en-US', { timeZone: tz, year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', hourCycle: 'h23' })
+      .formatToParts(new Date(ms)).forEach(function (x) { v[x.type] = +x.value; });
+    off = Math.round((Date.UTC(v.year, v.month - 1, v.day, v.hour % 24, v.minute) - ms) / 60000);
+  } catch (e) { off = 0; }
+  return (offCache[k] = off);
+}
+function zoneAbbr(day, p) {
+  var tz = TZ[tzKey(p)]; if (!tz) return '';
+  try { var q = (day.date || todayIso()).split('-'), x = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'short' }).formatToParts(new Date(Date.UTC(+q[0], +q[1] - 1, +q[2], 17))).filter(function (y) { return y.type === 'timeZoneName'; })[0]; return x ? x.value : ''; } catch (e) { return ''; }
+}
+function zoneSet(day) { var z = {}; waypoints(day).forEach(function (p) { var o = zoneOff(day, p); if (TZ[tzKey(p)]) z[o] = 1; }); return Object.keys(z).length; }
 
 /* ---------- routing ---------- */
 function orsKey() { return store.get('orsKey', ''); }
@@ -1817,6 +1891,183 @@ function dayNavUrl(day) {                  // Google Maps takes the start, the e
   var last = w[w.length - 1], mid = w.slice(1, -1).slice(0, 9);
   var how = modeOf(last) === 'walk' ? 'walking' : modeOf(last) === 'bike' ? 'bicycling' : 'driving';
   return 'https://www.google.com/maps/dir/?api=1&origin=' + ll(w[0]) + '&destination=' + ll(last) + (mid.length ? '&waypoints=' + mid.map(ll).join('%7C') : '') + '&travelmode=' + how;
+}
+
+/* ---------- sunrise and sunset (after SunCalc, V. Agafonkin) ---------- */
+function sunUtc(dateStr, lat, lon) {
+  var R = Math.PI / 180, p = dateStr.split('-'), date = Date.UTC(+p[0], +p[1] - 1, +p[2], 12) - lon / 15 * 3600e3;
+  var d = date / 864e5 - 0.5 + 2440588 - 2451545, lw = -lon * R, phi = lat * R, e = 23.4397 * R, J0 = 0.0009;
+  var n = Math.round(d - J0 - lw / (2 * Math.PI)), ds = J0 + lw / (2 * Math.PI) + n;
+  var M = R * (357.5291 + 0.98560028 * ds), C = R * (1.9148 * Math.sin(M) + 0.02 * Math.sin(2 * M) + 0.0003 * Math.sin(3 * M));
+  var L = M + C + R * 102.9372 + Math.PI, dec = Math.asin(Math.sin(e) * Math.sin(L));
+  var Jnoon = 2451545 + ds + 0.0053 * Math.sin(M) - 0.0069 * Math.sin(2 * L);
+  var cosw = (Math.sin(-0.833 * R) - Math.sin(phi) * Math.sin(dec)) / (Math.cos(phi) * Math.cos(dec));
+  if (cosw > 1 || cosw < -1) return null;                       // polar day or night
+  var w = Math.acos(cosw), Jset = 2451545 + (J0 + (w + lw) / (2 * Math.PI) + n) + 0.0053 * Math.sin(M) - 0.0069 * Math.sin(2 * L), Jrise = Jnoon - (Jset - Jnoon);
+  var ms = function (j) { return (j + 0.5 - 2440588) * 864e5; };
+  return { rise: ms(Jrise), set: ms(Jset) };
+}
+var TZ = store.get('tz2', {});                                 // time zone names by 0.1° cell, learned from Open-Meteo
+function tzKey(p) { return (Math.round(p.y * 10) / 10) + ',' + (Math.round(p.x * 10) / 10); }
+function minutesIn(msUtc, tz) {                                // minutes after local midnight at the place
+  try {
+    if (tz) { var parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: 'numeric', minute: 'numeric', hourCycle: 'h23' }).formatToParts(new Date(msUtc)), hh = 0, mm = 0;
+      parts.forEach(function (x) { if (x.type === 'hour') hh = +x.value % 24; if (x.type === 'minute') mm = +x.value; }); return hh * 60 + mm; }
+  } catch (e) {}
+  var d = new Date(msUtc); return d.getHours() * 60 + d.getMinutes();
+}
+function sunAt(date, p) {
+  if (!date || !p) return null;
+  var u = sunUtc(date, p.y, p.x); if (!u) return null;
+  var tz = TZ[tzKey(p)] || null;
+  return { rise: minutesIn(u.rise, tz), set: minutesIn(u.set, tz), tz: tz };
+}
+var DARK_KINDS = { caches: 1, labs: 1 };
+function sunWarn(day, s, r) {
+  if (!day.date || !(s.stop === 2 || DARK_KINDS[s.kind])) return '';
+  var sun = sunAt(day.date, s); if (!sun) return '';
+  var what = s.stop === 2 && !DARK_KINDS[s.kind] ? 'hike' : 'cache';
+  if (r.arrive != null && r.arrive % 1440 >= sun.set) return 'After dark: sunset is ' + clock(sun.set);
+  if (r.leave != null && r.leave > sun.set) return 'The ' + what + ' runs ' + dur(r.leave - sun.set) + ' past sunset (' + clock(sun.set) + ')';
+  if (r.arrive != null && r.arrive < sun.rise) return 'Before sunrise (' + clock(sun.rise) + ')';
+  return '';
+}
+
+/* ---------- weather from Open-Meteo (free, no key) ---------- */
+var WX = store.get('wx', {}), wxBusy = {}, wxFail = {};
+var WXI = function (c) { return c == null ? '' : c === 0 ? '☀️' : c === 1 ? '🌤️' : c === 2 ? '⛅' : c === 3 ? '☁️' : c <= 48 ? '🌫️' : c <= 57 ? '🌦️' : c <= 67 ? '🌧️' : c <= 77 ? '🌨️' : c <= 82 ? '🌦️' : c <= 86 ? '🌨️' : '⛈️'; };
+var WXT = function (c) { return c == null ? '' : c === 0 ? 'Clear' : c <= 2 ? 'Partly cloudy' : c === 3 ? 'Cloudy' : c <= 48 ? 'Fog' : c <= 57 ? 'Drizzle' : c <= 67 ? 'Rain' : c <= 77 ? 'Snow' : c <= 82 ? 'Showers' : c <= 86 ? 'Snow showers' : 'Thunderstorms'; };
+function daysAhead(date) { var p = date.split('-'), t = new Date(); return Math.round((new Date(+p[0], +p[1] - 1, +p[2]) - new Date(t.getFullYear(), t.getMonth(), t.getDate())) / 864e5); }
+function wxKey(date, p) { return date + '|' + p.y.toFixed(2) + ',' + p.x.toFixed(2); }
+function wxFor(date, p) { var w = WX[wxKey(date, p)]; return w && Date.now() - w.at < 3 * 3600e3 ? w : null; }
+function wxPrune() { var keep = {}, t = todayIso(); Object.keys(WX).forEach(function (k) { if (k.slice(0, 10) >= t && Date.now() - WX[k].at < 12 * 3600e3) keep[k] = WX[k]; }); WX = keep; store.set('wx', WX); }
+function wantWx(day) {                                          // fetch the forecast (or just the time zone) for a day when it is missing
+  if (!day || IN_PREVIEW) return;
+  if (!day.date) { var nd = { date: todayIso(), stops: day.stops, start: day.start, end: day.end, depart: day.depart, id: day.id }; nd.noForecast = true; day = nd; }
+  var pts = waypoints(day); if (!pts.length) return;
+  var ahead = daysAhead(day.date), key = day.date + ':' + wkey(day);
+  if (wxBusy[key] || (wxFail[key] && Date.now() - wxFail[key] < 10 * 60e3)) return;
+  var fc = !day.noForecast && ahead >= 0 && ahead <= 15, uniq = {}, list = [];
+  pts.forEach(function (p) { var k = wxKey(day.date, p); if (!uniq[k] && list.length < 12) { uniq[k] = 1; list.push(p); } });
+  var need = fc ? list.filter(function (p) { return !wxFor(day.date, p) || !TZ[tzKey(p)]; }) : list.filter(function (p) { return !TZ[tzKey(p)]; }).slice(0, 8);
+  if (!need.length) return;
+  var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + need.map(function (p) { return p.y.toFixed(3); }).join(',') + '&longitude=' + need.map(function (p) { return p.x.toFixed(3); }).join(',') + '&timezone=auto' +
+    (fc ? '&temperature_unit=fahrenheit&hourly=temperature_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&start_date=' + day.date + '&end_date=' + day.date
+        : '&daily=weather_code&forecast_days=1');
+  wxBusy[key] = 1;
+  fetch(url).then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(function (j) {
+    var arr = Array.isArray(j) ? j : [j];
+    arr.forEach(function (o, i) {
+      var p = need[i]; if (!p || !o) return;
+      if (o.timezone && o.timezone !== 'GMT') TZ[tzKey(p)] = o.timezone;
+      if (fc && o.hourly && o.daily) WX[wxKey(day.date, p)] = { at: Date.now(), tz: o.timezone, h: { t: o.hourly.temperature_2m, p: o.hourly.precipitation_probability, c: o.hourly.weather_code },
+        d: { hi: o.daily.temperature_2m_max[0], lo: o.daily.temperature_2m_min[0], p: o.daily.precipitation_probability_max[0], c: o.daily.weather_code[0] } };
+    });
+    store.set('tz2', TZ); wxPrune(); delete wxBusy[key]; wxFail[key] = Date.now();
+    offCache = {};
+    if (!$('itin').hidden && itinView === 'plan') { renderItin(); drawItin(); }
+  }).catch(function () { delete wxBusy[key]; wxFail[key] = Date.now(); });
+}
+function stopWx(day, s, arrive) {
+  if (!day.date) return '';
+  var w = wxFor(day.date, s); if (!w || !w.h || !w.h.t) return '';
+  var hr = arrive != null ? Math.min(23, Math.max(0, Math.floor((arrive % 1440) / 60))) : 12, t = w.h.t[hr], pp = w.h.p ? w.h.p[hr] : null;
+  if (t == null) return '';
+  return '<div class="wx">' + WXI(w.h.c[hr]) + ' ' + Math.round(t) + '° ' + esc(WXT(w.h.c[hr]).toLowerCase()) + (pp >= 20 ? ' · ' + pp + '% chance of rain' : '') + '</div>';
+}
+function dayWxHtml(day) {
+  if (!day.date) { wantWx(day); return ''; }
+  var pts = waypoints(day); if (!pts.length) return '';
+  wantWx(day);
+  var main = day.end || pts[pts.length - 1], w = wxFor(day.date, pts[0]) || wxFor(day.date, main), sun = sunAt(day.date, pts[0]), ahead = daysAhead(day.date), h = '<div class="daywx">';
+  if (w && w.d) h += '<span>' + WXI(w.d.c) + ' ' + esc(WXT(w.d.c)) + ', ' + Math.round(w.d.hi) + '° / ' + Math.round(w.d.lo) + '°F</span>' + (w.d.p != null ? '<span>' + w.d.p + '% rain</span>' : '');
+  else if (ahead > 15) h += '<span class="mut">Forecast shows 16 days out</span>';
+  if (sun) h += '<span>Sunrise ' + clock(sun.rise) + '</span><span>Sunset ' + clock(sun.set) + '</span>';
+  return h + '</div>';
+}
+
+/* ---------- fuel estimate ---------- */
+function fuelCfg() { var f = D.itin.fuel || {}; return { type: f.type === 'ev' ? 'ev' : 'gas', eff: +f.eff > 0 ? +f.eff : (f.type === 'ev' ? 3.5 : 25), price: f.price != null && +f.price >= 0 ? +f.price : (f.type === 'ev' ? 0.35 : 3.25) }; }
+function dayDriveMiles(day) {
+  var w = waypoints(day); if (w.length < 2) return 0;
+  var legs = day.route && day.route.key === wkey(day) ? day.route.legs : estLegs(w).legs, mi = 0;
+  legs.forEach(function (l) { if (!l.mode || l.mode === 'drive') mi += l.mi; });
+  return mi;
+}
+function fuelEst() {
+  var F = fuelCfg(), days = D.itin.days.map(function (d, i) { var mi = dayDriveMiles(d); return { i: i, mi: mi, cost: mi / F.eff * F.price }; });
+  var mi = 0, cost = 0; days.forEach(function (x) { mi += x.mi; cost += x.cost; });
+  return { cfg: F, days: days, mi: mi, cost: cost };
+}
+function fuelHtml(F, logged) {
+  var c = F.cfg, ev = c.type === 'ev';
+  var h = '<h3 class="sub">Fuel estimate</h3><div class="fuel"><div class="dayrow">' +
+    '<label>Vehicle <select id="fType"><option value="gas"' + (ev ? '' : ' selected') + '>Gas</option><option value="ev"' + (ev ? ' selected' : '') + '>Electric</option></select></label>' +
+    '<label>' + (ev ? 'mi / kWh' : 'mpg') + ' <input id="fEff" type="number" min="0.1" step="0.1" inputmode="decimal" value="' + esc(c.eff) + '"></label>' +
+    '<label>' + (ev ? '$ / kWh' : '$ / gallon') + ' <input id="fPrice" type="number" min="0" step="0.01" inputmode="decimal" value="' + esc(c.price) + '"></label></div>';
+  if (!F.mi) return h + '<p class="note">Add stops to the days and the drive miles are priced here. Walking and cycling legs are left out.</p></div>';
+  h += '<table class="ctab"><tbody>' + F.days.filter(function (x) { return x.mi; }).map(function (x) { return '<tr><td>' + esc(dayLabel(D.itin.days[x.i], x.i)) + ' · ' + Math.round(x.mi) + ' mi</td><td>' + money(x.cost) + '</td></tr>'; }).join('') +
+    '<tr><td><b>Trip · ' + Math.round(F.mi).toLocaleString() + ' mi</b></td><td>' + money(F.cost) + '</td></tr></tbody></table>';
+  return h + '<p class="note">' + (ev ? 'Charging' : 'Gas') + ' logged so far: ' + money(logged) + '. The part of the estimate not yet logged counts against the budget as fuel to come. Miles are drive legs only, from the drive times when they are in, otherwise straight-line estimates.</p></div>';
+}
+
+/* ---------- History stats ---------- */
+var statSort = store.get('statSort', 'pct');
+var PROV = { AB: 'Alberta', BC: 'British Columbia', MB: 'Manitoba', NB: 'New Brunswick', NL: 'Newfoundland and Labrador', NS: 'Nova Scotia', NT: 'Northwest Territories', NU: 'Nunavut', ON: 'Ontario', PE: 'Prince Edward Island', QC: 'Quebec', SK: 'Saskatchewan', YT: 'Yukon' };
+function showStats() {
+  var by = {}, tot = { US: [0, 0], CA: [0, 0] };
+  D.counties.forEach(function (c) {
+    var k = c.c + ':' + c.s, g = eff(c), b = by[k] || (by[k] = { c: c.c, s: c.s, n: 0, f: 0, nf: 0 });
+    b.n++; if (g === 1) b.f++; if (g === 2) b.nf++;
+    if (tot[c.c]) { tot[c.c][1]++; if (g === 1) tot[c.c][0]++; }
+  });
+  var pct = function (a, b) { return b ? Math.round(a / b * 1000) / 10 : 0; }, Hh = D.hist;
+  var allF = tot.US[0] + tot.CA[0], allN = tot.US[1] + tot.CA[1];
+  var trips = {}; Hh.hroutes.forEach(function (r) { if (!r.trip || !r.date) return; var t = trips[r.trip] || (trips[r.trip] = { name: r.trip, a: r.date, b: r.date, days: {}, mi: 0 }); if (r.date < t.a) t.a = r.date; if (r.date > t.b) t.b = r.date; t.days[r.date] = 1; t.mi += lineMi(r); });
+  var tl = Object.keys(trips).map(function (k) { return trips[k]; }).sort(function (a, b) { return a.a < b.a ? 1 : -1; });
+  var finds = Hh.hfound.map(function (f) { return f.fd; }).filter(Boolean).sort();
+  tl.forEach(function (t) { var lo = 0, hi = finds.length; while (lo < hi) { var m = (lo + hi) >> 1; if (finds[m] < t.a) lo = m + 1; else hi = m; } var n = 0; for (var i = lo; i < finds.length && finds[i] <= t.b; i++) n++; t.finds = n; });
+  var years = {}; finds.forEach(function (d) { var y = d.slice(0, 4); years[y] = (years[y] || 0) + 1; });
+  var fmt = function (d) { var p = d.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); };
+  var h = head('History', 'Stats');
+  h += '<div class="tots"><div><span>Counties found</span><b>' + allF.toLocaleString() + ' of ' + allN.toLocaleString() + '</b><small>' + pct(allF, allN) + '%</small></div>' +
+    '<div><span>United States</span><b>' + tot.US[0].toLocaleString() + ' of ' + tot.US[1].toLocaleString() + '</b><small>' + pct(tot.US[0], tot.US[1]) + '%</small></div>' +
+    (tot.CA[1] ? '<div><span>Canada</span><b>' + tot.CA[0] + ' of ' + tot.CA[1] + '</b><small>' + pct(tot.CA[0], tot.CA[1]) + '%</small></div>' : '') +
+    '<div><span>Caches found</span><b>' + Hh.hfound.length.toLocaleString() + '</b></div>' +
+    '<div><span>Trips</span><b>' + tl.length + '</b></div>' +
+    '<div><span>Breweries</span><b>' + Hh.hbrew.length.toLocaleString() + '</b></div>' +
+    '<div><span>Untappd top</span><b>' + Hh.huntappd.filter(function (b) { return b.visited; }).length + ' of ' + Hh.huntappd.length + '</b></div>' +
+    '<div><span>Hikes</span><b>' + Hh.hhikes.length + '</b></div>' +
+    '<div><span>Guster shows</span><b>' + Hh.hguster.length + '</b></div></div>';
+  var rows = Object.keys(by).map(function (k) { return by[k]; });
+  rows.sort(statSort === 'az' ? function (a, b) { return (a.c + a.s).localeCompare(b.c + b.s); }
+          : statSort === 'left' ? function (a, b) { var la = a.n - a.f || 1e9, lb = b.n - b.f || 1e9; return la - lb || b.f / b.n - a.f / a.n; }
+          : function (a, b) { return b.f / b.n - a.f / a.n || b.f - a.f; });
+  h += '<h3 class="sub">By state and province</h3><div class="seg2" role="group" aria-label="Sort">' +
+    [['pct', 'Most complete'], ['left', 'Fewest left'], ['az', 'A–Z']].map(function (o) { return '<button type="button" data-act="statsort" data-v="' + o[0] + '" aria-pressed="' + (statSort === o[0]) + '">' + o[1] + '</button>'; }).join('') + '</div>';
+  h += '<table class="stab"><tbody>' + rows.map(function (r) {
+    var p = r.f / r.n * 100, nm = r.c === 'CA' ? (PROV[r.s] || r.s) : r.s;
+    return '<tr><td><button type="button" data-act="statgo" data-k="' + esc(r.c + ':' + r.s) + '" title="Zoom to ' + esc(nm) + '">' + esc(nm) + '</button>' + (r.nf ? ' <small style="color:var(--notfound)">· ' + r.nf + ' to find</small>' : '') + '</td>' +
+      '<td class="n">' + (r.f === r.n ? '<b style="color:var(--found)">Done</b> ' : '') + r.f + ' / ' + r.n + '</td><td class="bar2"><div class="b"><i style="width:' + p.toFixed(1) + '%"></i></div></td><td class="n">' + Math.round(p) + '%</td></tr>';
+  }).join('') + '</tbody></table><p class="note">Tap a state or province to zoom to it.</p>';
+  if (tl.length) h += '<h3 class="sub">Trips</h3><table class="stab"><tbody>' + tl.map(function (t) {
+    return '<tr><td><b>' + esc(t.name) + '</b><br><small style="color:var(--muted)">' + fmt(t.a) + (t.b !== t.a ? ' – ' + fmt(t.b) : '') + ' · ' + Object.keys(t.days).length + ' days</small></td><td class="n">' + Math.round(t.mi).toLocaleString() + ' mi<br><small style="color:var(--muted)">' + t.finds + ' caches</small></td></tr>';
+  }).join('') + '</tbody></table><p class="note">Miles are measured along the saved routes. Caches are counted by find date between the first and last day of each trip’s routes.</p>';
+  var ys = Object.keys(years).sort().reverse();
+  if (ys.length) h += '<h3 class="sub">Caches found by year</h3><table class="ctab"><tbody>' + ys.map(function (y) { return '<tr><td>' + y + '</td><td>' + years[y].toLocaleString() + '</td></tr>'; }).join('') + '</tbody></table>';
+  h += '<div class="row"><button class="btn" type="button" data-act="nflist">Counties to find</button></div>';
+  sheet._point = null; openSheet(h);
+}
+function lineMi(r) {                                         // length of a route segment drawn from its line
+  if (r._mi != null) return r._mi;
+  var pts = routePts(r), km = 0; for (var i = 1; i < pts.length; i++) km += haversineKm(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1]);
+  return (r._mi = km / 1.609344);
+}
+function zoomState(k) {
+  var B = [Infinity, Infinity, -Infinity, -Infinity];
+  D.counties.forEach(function (c) { if (c.c + ':' + c.s !== k) return; if (c.b[0] < B[0]) B[0] = c.b[0]; if (c.b[1] < B[1]) B[1] = c.b[1]; if (c.b[2] > B[2]) B[2] = c.b[2]; if (c.b[3] > B[3]) B[3] = c.b[3]; });
+  if (!isFinite(B[0])) return;
+  closeSheet(); map.fitBounds([[unmy(B[3]), B[0] * 360 - 180], [unmy(B[1]), B[2] * 360 - 180]], { padding: [30, 30] });
 }
 
 /* ---------- back up and restore everything on this phone ---------- */
@@ -2052,8 +2303,8 @@ function renderItin() {
   h += viewTabs();
   if (itinView === 'book' || itinView === 'cost') { el.innerHTML = h + (itinView === 'book' ? renderBookings() : renderCosts()); return; }
   h += '<div class="search"><input id="plSearch" type="search" placeholder="Search for a place to add" autocomplete="off" aria-label="Search for a place" value="' + esc(lastQuery) + '">' +
-       '<button class="btn" type="button" data-it="search">Search</button></div><div id="plResults"></div>' +
-       '<div class="row" style="margin-top:6px"><button class="btn" type="button" data-it="pincenter">Drop a pin at the map centre</button></div>';
+       '<button class="btn" type="button" data-it="search">Search</button>' +
+       '<button class="btn pin" type="button" data-it="pincenter" aria-label="Drop a pin at the map centre" title="Drop a pin at the map centre"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg></button></div><div id="plResults"></div>';
   h += '<div class="daytabs" role="tablist">';
   I.days.forEach(function (d, i) { h += '<button type="button" role="tab" data-it="day" data-i="' + i + '" aria-selected="' + (i === curDay) + '">' + esc(dayLabel(d, i)) + '</button>'; });
   h += '<button type="button" data-it="addday" aria-label="Add a day">+ Day</button></div>';
@@ -2062,6 +2313,7 @@ function renderItin() {
     if (day.route && day.route.key === wkey(day)) day.route.legs.forEach(function (l) { totMi += l.mi; totMin += l.min; });
     h += '<div class="dayrow"><label>Date <input type="date" id="dDate" value="' + esc(day.date || '') + '"></label>' +
          '<label>Leave at <input type="time" id="dDepart" value="' + esc(day.depart || '') + '"></label></div>';
+    h += dayWxHtml(day);
     var today = new Date(), iso = today.getFullYear() + '-' + ('0' + (today.getMonth() + 1)).slice(-2) + '-' + ('0' + today.getDate()).slice(-2);
     if (day.date === iso) {
       var now = today.getHours() * 60 + today.getMinutes(), nx = null;
@@ -2069,35 +2321,37 @@ function renderItin() {
       if (nx != null) h += '<div class="today"><div>Today · next: <b>' + esc(day.stops[nx].name) + '</b> ' + (sc.stops[nx].arrive > now ? 'arrive ' + clock(sc.stops[nx].arrive) : 'leave by ' + clock(sc.stops[nx].leave)) + '</div>' + navLink(day.stops[nx], modeOf(day.stops[nx]), '', 'Go') + '</div>';
     }
     h += '<ol class="plan">';
-    h += placeRow(day.start, 'start', clock(hm(day.depart)) ? 'Leave ' + clock(hm(day.depart)) : '');
+    h += placeRow(day.start, 'start', clock(hm(day.depart)) ? 'Leave ' + clock(hm(day.depart)) : '', sc.zones > 1 ? zoneAbbr(day, day.start || {}) : '');
     var wpIdx = day.start ? 1 : 0, GRIP = function (i, nm) { return '<button type="button" class="grip" data-grip="' + i + '" aria-label="Drag to reorder ' + esc(nm) + '. Arrow keys move it." title="Drag to reorder"><svg viewBox="0 0 12 20" aria-hidden="true"><circle cx="3" cy="4" r="1.6"/><circle cx="9" cy="4" r="1.6"/><circle cx="3" cy="10" r="1.6"/><circle cx="9" cy="10" r="1.6"/><circle cx="3" cy="16" r="1.6"/><circle cx="9" cy="16" r="1.6"/></svg></button>'; };
     day.stops.forEach(function (s, i) {
       var r = sc.stops[i];
       if (r.note) {
-        h += '<li class="stop note"><div class="when"><span class="kicker">Note</span></div><div class="what"><div class="notetext">' + esc(s.text || '') + '</div></div>' +
-          '<div class="acts"><button type="button" data-it="edit" data-i="' + i + '" aria-label="Edit note">Edit</button>' + (day.stops.length > 1 ? GRIP(i, 'note') : '') + '</div></li>';
+        h += '<li class="stop note"><div class="when"><span class="kicker">Note</span></div><div class="what" data-it="edit" data-i="' + i + '" role="button" tabindex="0" aria-label="Edit note"><div class="notetext">' + esc(s.text || '') + '</div></div>' +
+          '<div class="acts">' + (day.stops.length > 1 ? GRIP(i, 'note') : '') + '</div></li>';
         return;
       }
       if (r.leg || (wpIdx > 0)) h += legRow(r.leg, day, wpIdx, s);
       wpIdx++;
-      h += '<li class="stop' + (r.late ? ' late' : '') + '"><div class="when">' + (r.arrive != null ? clock(r.arrive) : '') + (r.leave != null && r.leave !== r.arrive ? '<br><span>' + clock(r.leave) + '</span>' : '') + '</div>' +
-        '<div class="what"><b>' + (STOPS[s.stop] && s.kind !== 'caches' && s.kind !== 'labs' ? '<i class="ic">' + STOPS[s.stop][1] + '</i>' : '') + esc(s.name) + '</b>' +
+      var sunW = sunWarn(day, s, r);
+      var zl = sc.zones > 1 && r.arrive != null ? '<span class="tz">' + esc(zoneAbbr(day, s)) + '</span>' : '';
+      h += '<li class="stop' + (r.late ? ' late' : '') + '"><div class="when">' + (r.arrive != null ? clock(r.arrive) : '') + (r.leave != null && r.leave !== r.arrive ? '<br><span>' + clock(r.leave) + '</span>' : '') + zl + '</div>' +
+        '<div class="what" data-it="edit" data-i="' + i + '" role="button" tabindex="0" aria-label="Edit ' + esc(s.name) + '"><b>' + (STOPS[s.stop] && s.kind !== 'caches' && s.kind !== 'labs' ? '<i class="ic">' + STOPS[s.stop][1] + '</i>' : '') + esc(s.name) + '</b>' +
         (r.late ? '<div class="warn">Arrives ' + clock(r.eta) + ', ' + dur(r.late) + ' after the ' + clock(hm(s.arrive)) + ' plan</div>' : '') +
-        (r.short ? '<div class="warn">Less than 5 minutes here</div>' : '') +
+        stopWx(day, s, r.arrive) + (r.short ? '<div class="warn">Less than 5 minutes here</div>' : '') + (sunW ? '<div class="warn">' + esc(sunW) + '</div>' : '') +
         (s.hours ? '<div class="pnote">Hours: ' + esc(s.hours) + '</div>' : '') + (s.notes ? '<div class="pnote">' + esc(s.notes) + '</div>' : '') + '</div>' +
-        '<div class="acts">' + navLink(s, modeOf(s), 'nav') + '<button type="button" data-it="edit" data-i="' + i + '" aria-label="Edit ' + esc(s.name) + '">Edit</button>' +
+        '<div class="acts">' + navLink(s, modeOf(s), 'nav') +
         (day.stops.length > 1 ? GRIP(i, s.name) : '') + '</div></li>';
     });
     if (day.end && wpIdx > 0) h += legRow(sc.endLeg, day, wpIdx, day.end);
-    h += placeRow(day.end, 'end', sc.end != null && day.end ? 'Arrive ' + clock(sc.end) : '');
+    h += placeRow(day.end, 'end', sc.end != null && day.end ? 'Arrive ' + clock(sc.end) : '', sc.zones > 1 && day.end ? zoneAbbr(day, day.end) : '');
     h += '</ol>';
-    h += '<div class="row" style="margin-top:8px"><button class="btn" type="button" data-it="addnote">Add a note</button></div>';
+    h += '<button class="link small" type="button" data-it="addnote">+ Add a note</button>';
     if (!day.stops.length && !day.start) h += '<p class="note">Tap a lodging, brewery, cache or any place on the map, then use Start day, Add stop or End day in its pop-up.</p>';
     h += '<div class="daytot">' + (totMi ? Math.round(totMi) + ' mi · ' + dur(totMin) + ' travelling' : '') + (day.route && day.route.src === 'est' && day.route.key === wkey(day) ? ' <span class="est">estimate</span>' + (day.route.why === 'nokey' ? '<div class="pnote">Dotted lines are straight-line estimates. Add the drive-times key on this device below for road routes.</div>' : '') : '') +
       (routing[day.id] ? ' <span class="est">updating…</span>' : '') + '</div>';
     var dn = dayNavUrl(day);
-    h += '<div class="row"><button class="btn" type="button" data-it="route">Update drive times</button>' + (dn ? '<a class="btn" href="' + esc(dn) + '" target="_blank" rel="noopener">Open day in Google Maps</a>' : '') + '</div>' +
-         '<div class="row"><button class="btn" type="button" data-it="delday">Delete this day</button></div>';
+    h += '<div class="row tight"><button class="btn" type="button" data-it="route">Update drive times</button>' + (dn ? '<a class="btn" href="' + esc(dn) + '" target="_blank" rel="noopener">Open day in Google Maps</a>' : '') + '</div>' +
+         '<button class="link small danger" type="button" data-it="delday">Delete this day</button>';
   }
   h += '<h3 class="sub">Trip</h3><div class="row"><button class="btn primary" type="button" data-it="savefile">Save itinerary file</button><button class="btn" type="button" data-it="saveroutes">Save routes for Pro</button></div>' +
        '<div class="row"><button class="btn" type="button" data-it="savestops">Save places for Pro</button></div>' +
@@ -2109,15 +2363,16 @@ function renderItin() {
        '<p class="note">' + (orsKey() ? 'Key saved on this device.' : 'Without a key, drive times are straight-line estimates at 50 mph, shown as a dotted line.') + ' Add it on each device where you change the itinerary. Driving, walking and cycling are available; OpenRouteService has no public transit.</p></details>';
   el.innerHTML = h;
 }
-function placeRow(p, which, when) {
+function placeRow(p, which, when, zone) {
   if (!p) return '<li class="ends empty"><div class="when"></div><div class="what">' + (which === 'start' ? 'No start yet' : 'No end yet') + ' <small>· tap a place, then ' + (which === 'start' ? 'Start day' : 'End day') + '</small></div></li>';
-  return '<li class="ends"><div class="when">' + esc(when.replace(/^(Leave|Arrive) /, '')) + '</div><div class="what"><span class="kicker">' + (which === 'start' ? 'Start' : 'End') + '</span><b>' + esc(p.name) + '</b></div>' +
+  return '<li class="ends"><div class="when">' + esc(when.replace(/^(Leave|Arrive) /, '')) + (zone && when ? '<span class="tz">' + esc(zone) + '</span>' : '') + '</div><div class="what"><span class="kicker">' + (which === 'start' ? 'Start' : 'End') + '</span><b>' + esc(p.name) + '</b></div>' +
     '<div class="acts">' + (which === 'end' ? navLink(p, modeOf(p), 'nav') : '') + '<button type="button" data-it="clear' + which + '" aria-label="Remove ' + which + '">×</button></div></li>';
 }
 function legRow(leg, day, j, dest) {
-  var m = modeOf(dest), note = leg ? legNote(leg) : '';
+  var m = modeOf(dest), note = leg ? legNote(leg) : '', prev = waypoints(day)[j - 1], jump = prev ? zoneOff(day, dest) - zoneOff(day, prev) : 0;
   var sel = '<select class="mode" data-mode="' + j + '" aria-label="How you get to ' + esc(dest.name) + '">' + Object.keys(MODES).map(function (k) { return '<option value="' + k + '"' + (k === m ? ' selected' : '') + '>' + MODES[k].name + '</option>'; }).join('') + '</select>';
-  return '<li class="leg"><div class="when"></div><div class="what">' + sel + (leg ? ' ' + (leg.mi < 10 ? leg.mi.toFixed(1) : Math.round(leg.mi)) + ' mi · ' + dur(leg.min) : '') + (note ? '<div class="nf">' + esc(note) + '</div>' : '') + '</div></li>';
+  return '<li class="leg"><div class="when"></div><div class="what">' + sel + (leg ? ' ' + (leg.mi < 10 ? leg.mi.toFixed(1) : Math.round(leg.mi)) + ' mi · ' + dur(leg.min) : '') + (note ? '<div class="nf">' + esc(note) + '</div>' : '') +
+    (jump ? '<div class="tzjump">Into ' + esc(zoneAbbr(day, dest)) + ': clocks go ' + (jump > 0 ? 'ahead ' : 'back ') + dur(Math.abs(jump)).replace(/ $/, '') + '</div>' : '') + '</div></li>';
 }
 function editStop(i) {
   var day = D.itin.days[curDay], s = day.stops[i]; if (!s) return;
@@ -2256,7 +2511,7 @@ function wireItin() {
     else if (a === 'clearend' && day) { day.end = null; saveItin(); scheduleRoute(day); renderItin(); drawItin(); }
     else if (a === 'route' && day) { routeDay(day, true); renderItin(); }
     else if (a === 'delday' && day) {
-      if (b.getAttribute('data-sure') !== '1') { b.setAttribute('data-sure', '1'); b.textContent = 'Tap again to delete'; return; }
+      if (b.getAttribute('data-sure') !== '1') { b.setAttribute('data-sure', '1'); b.textContent = 'Tap again to delete this day'; return; }
       D.itin.days.splice(curDay, 1); curDay = Math.max(0, curDay - 1); saveItin(); drawItin(); renderItin();
     }
     else if (a === 'search') searchPlaces($('plSearch').value);
@@ -2273,6 +2528,7 @@ function wireItin() {
   el.addEventListener('selectstart', function (ev) { if (document.body.classList.contains('drag-stop') || (ev.target.closest && ev.target.closest('.grip'))) ev.preventDefault(); });
   el.addEventListener('keydown', function (ev) {
     if (ev.target.id === 'plSearch' && ev.key === 'Enter') { ev.preventDefault(); searchPlaces(ev.target.value); return; }
+    if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.getAttribute && ev.target.getAttribute('role') === 'button' && ev.target.hasAttribute('data-it')) { ev.preventDefault(); ev.target.click(); return; }
     var g = ev.target.closest && ev.target.closest('[data-grip]');
     if (g && (ev.key === 'ArrowUp' || ev.key === 'ArrowDown')) {
       ev.preventDefault(); var i = +g.getAttribute('data-grip'), to = i + (ev.key === 'ArrowUp' ? -1 : 1);
@@ -2281,6 +2537,12 @@ function wireItin() {
   });
   el.addEventListener('change', function (ev) {
     var t = ev.target, day = D.itin.days[curDay];
+    if (t.id === 'fType' || t.id === 'fEff' || t.id === 'fPrice') {
+      var fc = D.itin.fuel || (D.itin.fuel = {});
+      if (t.id === 'fType') { fc.type = t.value; delete fc.eff; delete fc.price; }
+      else if (t.value !== '' && +t.value >= 0) fc[t.id === 'fEff' ? 'eff' : 'price'] = +t.value;
+      saveItin(); renderItin(); return;
+    }
     if (t.id === 'cBudget') { D.itin.budget = t.value === '' ? null : Math.max(0, +t.value); saveItin(); renderItin(); }
     else if (t.id === 'itinName') { D.itin.name = t.value.trim(); saveItin(); }
     else if (t.id === 'dDate' && day) { day.date = t.value; saveItin(); renderItin(); }
@@ -2360,11 +2622,12 @@ function totals() {
   return { cats: cats, days: days, total: total, paid: paid };
 }
 function renderCosts() {
-  var I = costs(), T = totals(), budget = +I.budget || 0, left = budget - T.total;
+  var I = costs(), T = totals(), budget = +I.budget || 0, F = fuelEst(), logged = (T.cats.Gas || 0) + (T.cats.Charging || 0), toCome = Math.max(0, F.cost - logged), left = budget - T.total - toCome;
   var h = '<div class="dayrow"><label>Trip budget ($) <input id="cBudget" type="number" min="0" step="1" inputmode="decimal" value="' + esc(I.budget || '') + '"></label></div>';
-  h += '<div class="tots"><div><span>Total</span><b>' + money(T.total) + '</b></div>' + (budget ? '<div class="' + (left < 0 ? 'over' : '') + '"><span>' + (left < 0 ? 'Over budget' : 'Left') + '</span><b>' + money(Math.abs(left)) + '</b></div>' : '') +
+  h += '<div class="tots"><div><span>Total</span><b>' + money(T.total) + '</b></div>' + (toCome ? '<div><span>Fuel to come</span><b>' + money(toCome) + '</b></div>' : '') + (budget ? '<div class="' + (left < 0 ? 'over' : '') + '"><span>' + (left < 0 ? 'Over budget' : 'Left') + '</span><b>' + money(Math.abs(left)) + '</b></div>' : '') +
        '<div><span>Not paid yet</span><b>' + money(T.total - T.paid) + '</b></div></div>';
-  if (budget) h += '<div class="bar" aria-hidden="true"><i style="width:' + Math.min(100, T.total / budget * 100).toFixed(1) + '%"></i></div>';
+  if (budget) h += '<div class="bar" aria-hidden="true"><i style="width:' + Math.min(100, (T.total + toCome) / budget * 100).toFixed(1) + '%"></i></div>';
+  h += fuelHtml(F, logged);
   var cats = Object.keys(T.cats).sort(function (a, b) { return T.cats[b] - T.cats[a]; });
   if (cats.length) h += '<h3 class="sub">By category</h3><table class="ctab"><tbody>' + cats.map(function (c) { return '<tr><td>' + esc(c) + '</td><td>' + money(T.cats[c]) + '</td></tr>'; }).join('') + '</tbody></table>';
   h += '<h3 class="sub">Expenses</h3><div class="row"><button class="btn primary" type="button" data-it="expnew">Add expense</button>' + ((I.expenses.length || I.bookings.length) ? '<button class="btn" type="button" data-it="costcsv">Save costs as CSV</button>' : '') + '</div>';
