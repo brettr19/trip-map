@@ -749,8 +749,17 @@ svg.leaflet-image-layer.leaflet-interactive path {
 .form select { font: inherit; font-size: 16px; color: var(--fg); background: var(--panel); border: 2px solid var(--line); border-radius: 10px; min-height: 44px; padding: 0 8px; }
 .itin-head { display: flex; gap: 10px; align-items: center; }
 .itin-name { flex: 1; min-width: 0; font: inherit; font-size: 20px; font-weight: 700; border: 0; border-bottom: 2px solid var(--line); background: none; color: var(--fg); padding: 6px 0; }
-.daytabs { display: flex; gap: 6px; overflow-x: auto; margin: 12px -16px 0; padding: 0 16px 4px; }
-.daytabs button { flex: none; border: 2px solid var(--line); background: var(--panel); border-radius: 18px; min-height: 36px; padding: 0 12px; font-weight: 600; white-space: nowrap; }
+.dayhead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-top: 12px; font-size: 14px; }
+.dayhead span { color: var(--muted); }
+.dayhead .link { padding: 0; }
+.daynav { display: flex; gap: 4px; align-items: center; margin-top: 6px; }
+.daynav .dstep { flex: none; width: 34px; height: 44px; border: 0; border-radius: 10px; background: var(--panel-2); font-size: 24px; line-height: 1; color: var(--fg); padding: 0 0 3px; }
+.daynav .dstep:disabled { opacity: .35; }
+.daynav .dstep.add { font-size: 22px; font-weight: 600; }
+.daytabs { display: flex; gap: 4px; overflow-x: auto; flex: 1; min-width: 0; align-items: center; scrollbar-width: thin; scroll-padding: 0 8px; padding: 2px 0 4px; }
+.daytabs .mon { flex: none; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); writing-mode: vertical-rl; transform: rotate(180deg); padding: 0 1px; }
+.daytabs button { flex: none; border: 2px solid var(--line); background: var(--panel); border-radius: 10px; width: 42px; height: 44px; padding: 0; font-weight: 700; font-size: 16px; line-height: 1.05; white-space: nowrap; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.daytabs button small { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; opacity: .75; }
 .daytabs button[aria-selected="true"] { background: var(--fg); color: var(--panel); border-color: var(--fg); }
 .dayrow { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
 .dayrow label, .form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); flex: 1 1 140px; }
@@ -2295,6 +2304,41 @@ function addToItin(kind, f, where) {
   toast((where === 'start' ? 'Start of ' : where === 'end' ? 'End of ' : 'Added to ') + dayLabel(day, curDay));
   if (!$('itin').hidden) renderItin();
 }
+/* ---------- day picker: compact tabs, arrows, keeps the chosen day in view ---------- */
+function dayTab(d, i) {
+  if (!d.date) return { top: 'Day', big: String(i + 1), full: 'Day ' + (i + 1) };
+  var p = d.date.split('-'), t = new Date(+p[0], +p[1] - 1, +p[2]);
+  return { top: t.toLocaleDateString(undefined, { weekday: 'short' }), big: String(t.getDate()), mon: t.toLocaleDateString(undefined, { month: 'short' }), full: t.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }) };
+}
+function dayNav(I) {
+  var n = I.days.length, cur = I.days[curDay], ti = -1, today = todayIso();
+  I.days.forEach(function (d, i) { if (d.date === today) ti = i; });
+  var h = '<div class="dayhead"><div><b>' + (n ? 'Day ' + (curDay + 1) + ' of ' + n : 'No days yet') + '</b>' + (cur && cur.date ? ' <span>· ' + esc(dayTab(cur, curDay).full) + '</span>' : '') + '</div>' +
+    (ti >= 0 && ti !== curDay ? '<button class="link small" type="button" data-it="dgo" data-i="' + ti + '">Today</button>' : '') + '</div>';
+  h += '<div class="daynav"><button class="dstep" type="button" data-it="dgo" data-i="' + (curDay - 1) + '" aria-label="Previous day"' + (curDay > 0 ? '' : ' disabled') + '>‹</button><div class="daytabs" role="tablist" aria-label="Days">';
+  var lastMon = null;
+  I.days.forEach(function (d, i) {
+    var t = dayTab(d, i);
+    if (t.mon && t.mon !== lastMon) { h += '<span class="mon" aria-hidden="true">' + esc(t.mon) + '</span>'; lastMon = t.mon; }
+    h += '<button type="button" role="tab" data-it="day" data-i="' + i + '" aria-selected="' + (i === curDay) + '" aria-label="' + esc(t.full) + '" title="' + esc(t.full) + '"><small>' + esc(t.top) + '</small>' + esc(t.big) + '</button>';
+  });
+  h += '</div><button class="dstep" type="button" data-it="dgo" data-i="' + (curDay + 1) + '" aria-label="Next day"' + (curDay < n - 1 ? '' : ' disabled') + '>›</button>' +
+    '<button class="dstep add" type="button" data-it="addday" aria-label="Add a day" title="Add a day">+</button></div>';
+  return h;
+}
+function centerDay(smooth) {
+  var row = $('itin').querySelector('.daytabs'), b = row && row.querySelector('[aria-selected="true"]'); if (!b) return;
+  var x = b.offsetLeft - row.offsetLeft - (row.clientWidth - b.offsetWidth) / 2;
+  if (smooth && row.scrollTo) row.scrollTo({ left: x, behavior: 'smooth' }); else row.scrollLeft = x;
+}
+function goDay(i) {
+  if (i < 0 || i >= D.itin.days.length) return;
+  var keep = $('itin').querySelector('.daytabs'), sl = keep ? keep.scrollLeft : 0;
+  curDay = i; drawItin(); renderItin();
+  var row = $('itin').querySelector('.daytabs'); if (row) row.scrollLeft = sl;    // start where the row was, then glide to the day
+  centerDay(true);
+  var d = D.itin.days[curDay], w = waypoints(d); if (w.length) map.fitBounds(L.latLngBounds(w.map(function (p) { return [p.y, p.x]; })), { padding: [40, 40], maxZoom: 12 });
+}
 function renderItin() {
   var el = $('itin'); if (el.hidden) return;
   var I = D.itin, day = I.days[curDay], h = '';
@@ -2305,9 +2349,7 @@ function renderItin() {
   h += '<div class="search"><input id="plSearch" type="search" placeholder="Search for a place to add" autocomplete="off" aria-label="Search for a place" value="' + esc(lastQuery) + '">' +
        '<button class="btn" type="button" data-it="search">Search</button>' +
        '<button class="btn pin" type="button" data-it="pincenter" aria-label="Drop a pin at the map centre" title="Drop a pin at the map centre"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg></button></div><div id="plResults"></div>';
-  h += '<div class="daytabs" role="tablist">';
-  I.days.forEach(function (d, i) { h += '<button type="button" role="tab" data-it="day" data-i="' + i + '" aria-selected="' + (i === curDay) + '">' + esc(dayLabel(d, i)) + '</button>'; });
-  h += '<button type="button" data-it="addday" aria-label="Add a day">+ Day</button></div>';
+  h += dayNav(I);
   if (day) {
     var sc = schedule(day), totMi = 0, totMin = 0;
     if (day.route && day.route.key === wkey(day)) day.route.legs.forEach(function (l) { totMi += l.mi; totMin += l.min; });
@@ -2362,6 +2404,7 @@ function renderItin() {
        '<label for="orsKey">OpenRouteService key</label><input id="orsKey" type="text" autocomplete="off" spellcheck="false" value="' + esc(orsKey()) + '">' +
        '<p class="note">' + (orsKey() ? 'Key saved on this device.' : 'Without a key, drive times are straight-line estimates at 50 mph, shown as a dotted line.') + ' Add it on each device where you change the itinerary. Driving, walking and cycling are available; OpenRouteService has no public transit.</p></details>';
   el.innerHTML = h;
+  centerDay(false);
 }
 function placeRow(p, which, when, zone) {
   if (!p) return '<li class="ends empty"><div class="when"></div><div class="what">' + (which === 'start' ? 'No start yet' : 'No end yet') + ' <small>· tap a place, then ' + (which === 'start' ? 'Start day' : 'End day') + '</small></div></li>';
@@ -2496,8 +2539,8 @@ function wireItin() {
     var b = ev.target.closest('[data-it]'); if (!b) return;
     var a = b.getAttribute('data-it'), day = D.itin.days[curDay];
     if (a === 'close') closeItin();
-    else if (a === 'day') { curDay = +b.getAttribute('data-i'); drawItin(); renderItin(); var d = D.itin.days[curDay], w = waypoints(d); if (w.length) map.fitBounds(L.latLngBounds(w.map(function (p) { return [p.y, p.x]; })), { padding: [40, 40], maxZoom: 12 }); }
-    else if (a === 'addday') { addDay(); drawItin(); renderItin(); }
+    else if (a === 'day' || a === 'dgo') goDay(+b.getAttribute('data-i'));
+    else if (a === 'addday') { addDay(); curDay = D.itin.days.length - 1; drawItin(); renderItin(); toast('Added ' + dayLabel(D.itin.days[curDay], curDay)); }
     else if (a === 'edit') editStop(+b.getAttribute('data-i'));
     else if (a === 'view') { itinView = b.getAttribute('data-v'); store.set('itinView', itinView); renderItin(); }
     else if (a === 'booknew') bookForm({ type: b.getAttribute('data-t') });
@@ -2523,6 +2566,11 @@ function wireItin() {
     else if (a === 'saveroutes') saveText((D.itin.name ? D.itin.name.replace(/[^\w-]+/g, '_') + '_' : '') + 'routes.geojson', routesGeoJSON(), function () { toast('Routes saved'); });
   });
   el.addEventListener('pointerdown', function (ev) { var g = ev.target.closest('[data-grip]'); if (g) startDrag(ev, g); });
+  el.addEventListener('wheel', function (ev) {
+    var row = ev.target.closest && ev.target.closest('.daytabs'); if (!row || Math.abs(ev.deltaX) > Math.abs(ev.deltaY)) return;
+    if (row.scrollWidth <= row.clientWidth) return;
+    row.scrollLeft += ev.deltaY; ev.preventDefault();
+  }, { passive: false });
   // iPhone Safari starts a text selection or the callout menu on a held finger unless the touch itself is stopped
   el.addEventListener('touchstart', function (ev) { if (ev.target.closest && ev.target.closest('[data-grip]')) ev.preventDefault(); }, { passive: false });
   el.addEventListener('selectstart', function (ev) { if (document.body.classList.contains('drag-stop') || (ev.target.closest && ev.target.closest('.grip'))) ev.preventDefault(); });
