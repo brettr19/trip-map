@@ -828,6 +828,9 @@ var HICONS = {
   starOpen: SVG('<path fill="#ffffff" stroke="#b08400" stroke-width="2" d="M12 2.2l2.9 6.2 6.7.8-5 4.6 1.4 6.7L12 17.1l-6 3.4 1.4-6.7-5-4.6 6.7-.8z"/>'),
   note: SVG('<path fill="#1d4e89" d="M9 3.5 20 1.8v13.6a3.2 2.6 0 1 1-2-2.4V6.2l-7 1.2v10a3.2 2.6 0 1 1-2-2.4z"/>')
 };
+HICONS.check = SVG('<circle cx="12" cy="12" r="11" fill="#1f8a3a" stroke="#ffffff" stroke-width="2"/><path d="m6.5 12.5 3.6 3.6 7.4-8" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>');
+STOPS[7] = ['Guster show', HICONS.note];
+var VISIT_TYPES = [1, 2, 4, 7, 5, 6];
 var BASEMAPS = [
   { id: 'none', name: 'None', note: 'Your layers only' },
   { id: 'osm', name: 'OpenStreetMap', url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', max: 19, attr: '&copy; OpenStreetMap contributors' },
@@ -900,9 +903,14 @@ function countyAt(lat, lon) {
 var D = null, map = null, countyLayer = null, labelPane = null;
 var edits = store.get('edits', {});            // { id: { g, was, t, done } }  — changes made on this phone
 var show = Object.assign({ counties: true, names: true, caches: true, labs: true, route: true, pois: true,
-  hroutes: true, htrails: true, hfound: true, hbrew: true, huntappd: true, hguster: true, hhikes: true, hparks: true }, store.get('show', {}));
+  visits: true, hroutes: true, htrails: true, hfound: true, hbrew: true, huntappd: true, hguster: true, hhikes: true, hparks: true }, store.get('show', {}));
 var mode = store.get('mode', 'plan') === 'hist' ? 'hist' : 'plan';
-var MODE_LAYERS = { plan: ['route', 'labs', 'caches', 'pois'], hist: ['hroutes', 'htrails', 'hfound', 'hhikes', 'hparks', 'huntappd', 'hbrew', 'hguster'] };
+var visits = store.get('visits', []);          // places marked visited on this phone: {id, stop, name, x, y, t, pk, url, notes, g, at, len, typ, done}
+function poiKey(p) { return (p.name || '') + '|' + p.x + '|' + p.y; }
+function visitOf(p) { var k = poiKey(p); for (var i = 0; i < visits.length; i++) if (visits[i].pk === k) return visits[i]; return null; }
+function nowLocal() { var d = new Date(), z = function (n) { return (n < 10 ? '0' : '') + n; }; return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + ' ' + z(d.getHours()) + ':' + z(d.getMinutes()); }
+function saveVisits() { if (!store.set('visits', visits)) toast('This browser is not saving visits. Save a file before closing.'); drawVisits(); refreshChrome(); }
+var MODE_LAYERS = { plan: ['route', 'labs', 'caches', 'pois', 'visits'], hist: ['hroutes', 'htrails', 'hfound', 'hhikes', 'hparks', 'huntappd', 'hbrew', 'hguster'] };
 var POINT_LAYERS = { plan: ['pois', 'caches', 'labs'], hist: ['hguster', 'hbrew', 'huntappd', 'hhikes', 'hparks', 'hfound'] };
 var LINE_LAYERS = { plan: [], hist: ['htrails', 'hroutes'] };
 function applyLayers() {
@@ -988,7 +996,7 @@ L.Canvas.include({ _updateTriangle: function (layer) {
 } });
 var ICON_IMG = {};
 function loadIcons() {
-  var all = { s1: STOPS[1][1], s2: STOPS[2][1], s3: STOPS[3][1], s4: STOPS[4][1], s5: STOPS[5][1], s6: STOPS[6][1], star: HICONS.star, starOpen: HICONS.starOpen, note: HICONS.note };
+  var all = { s1: STOPS[1][1], s2: STOPS[2][1], s3: STOPS[3][1], s4: STOPS[4][1], s5: STOPS[5][1], s6: STOPS[6][1], s7: STOPS[7][1], check: HICONS.check, star: HICONS.star, starOpen: HICONS.starOpen, note: HICONS.note };
   return Promise.all(Object.keys(all).map(function (k) {
     return new Promise(function (res) {
       var im = new Image(); im.onload = im.onerror = function () { res(); };
@@ -999,7 +1007,7 @@ function loadIcons() {
 }
 L.Canvas.include({ _updateIcon: function (layer) {
   if (!this._drawing || layer._empty()) return;
-  var p = layer._point, ctx = this._ctx, sz = layer._radius * 2, im = layer.options.img;
+  var o = layer.options.off || [0, 0], p = { x: layer._point.x + o[0], y: layer._point.y + o[1] }, ctx = this._ctx, sz = layer._radius * 2, im = layer.options.img;
   if (!im || !im.complete || !im.naturalWidth) return;
   ctx.save(); if (layer.options.dim) ctx.globalAlpha = 0.45;
   ctx.shadowColor = 'rgba(255,255,255,0.95)'; ctx.shadowBlur = 3;
@@ -1046,6 +1054,7 @@ function buildMap() {
     return arr.map(function (p) { var m = new IconMarker([p.y, p.x], { renderer: canvas, radius: 12, img: ICON_IMG[typeof key === 'function' ? key(p) : key], dim: dimFn ? dimFn(p) : false, interactive: false }); m._r0 = 12; m._icon = true; allDots.push(m); return m; });
   }
   groups.pois = L.layerGroup(icons(D.pois, function (p) { return 's' + (STOPS[p.stop] ? p.stop : 6); }));
+  groups.visits = L.layerGroup(); visitCanvas = canvas;
   // ---- history map
   var H = D.hist;
   var lines = function (arr, color, w, dash) { return arr.map(function (r) { var l = L.polyline(routePts(r), { renderer: canvas, color: color, weight: w, opacity: 0.9, dashArray: dash, interactive: false }); l._f = r; return l; }); };
@@ -1072,7 +1081,37 @@ function buildMap() {
   map.on('moveend', function () { var c = map.getCenter(); store.set('view', { lat: c.lat, lng: c.lng, z: map.getZoom() }); drawLabels(); });
   map.on('zoomend', sizeDots);
   map.on('click', onTap);
+  map.on('contextmenu', function (ev) { addPlaceForm(ev.latlng); });
+  drawVisits();
   sizeDots(); drawLabels();
+}
+
+/* ---------- visits ---------- */
+var visitCanvas = null, lastFix = null;
+function hereLatLng() { return lastFix && Date.now() - lastFix.t < 5 * 60000 ? lastFix.ll : map.getCenter(); }
+function drawVisits() {
+  var g = groups.visits; if (!g) return; g.clearLayers();
+  visits.forEach(function (v) {
+    if (!v.pk) g.addLayer(new IconMarker([v.y, v.x], { renderer: visitCanvas, radius: 12, img: ICON_IMG['s' + (STOPS[v.stop] ? v.stop : 6)], interactive: false }));
+    g.addLayer(new IconMarker([v.y, v.x], { renderer: visitCanvas, radius: 7, img: ICON_IMG.check, off: [10, -10], interactive: false }));
+  });
+}
+function markVisited(f) {
+  if (visitOf(f)) return;
+  visits.push({ id: Date.now(), pk: poiKey(f), stop: f.stop, name: f.name, x: f.x, y: f.y, t: nowLocal(), url: f.url, notes: f.notes, g: f.g, at: f.at, len: f.len });
+  saveVisits(); toast((f.name || 'Stop') + ' marked visited');
+}
+function removeVisit(id) { visits = visits.filter(function (v) { return String(v.id) !== String(id); }); saveVisits(); }
+function addPlaceForm(ll) {
+  sheet._ll = ll;
+  var h = head('Add a place you visited', 'Here') + '<label class="kicker" for="vName" style="display:block;margin-top:14px">Name</label>' +
+    '<input id="vName" type="text" autocomplete="off" style="width:100%;min-height:44px;font:inherit;border:2px solid var(--line);border-radius:10px;padding:0 10px;background:var(--panel);color:var(--fg)">' +
+    '<div class="kicker" style="margin-top:12px">Type</div><div class="seg" id="vType" style="grid-template-columns:repeat(3,1fr)">';
+  VISIT_TYPES.forEach(function (t, i) { h += '<button type="button" data-act="vtype" data-t="' + t + '" aria-pressed="' + (i === 0) + '">' + esc(STOPS[t][0].replace('/Trailhead', '').replace('/Garden/Viewpoint', '')) + '</button>'; });
+  h += '</div><label class="kicker" for="vNotes" style="display:block;margin-top:12px">Notes (optional)</label>' +
+    '<input id="vNotes" type="text" autocomplete="off" style="width:100%;min-height:44px;font:inherit;border:2px solid var(--line);border-radius:10px;padding:0 10px;background:var(--panel);color:var(--fg)">' +
+    '<div class="row"><button class="btn primary" type="button" data-act="addvisit">Save as visited</button></div><p class="note">Saved with the time now. It goes to ArcGIS Pro with your other visits.</p>';
+  openSheet(h);
 }
 
 /* ---------- basemaps ---------- */
@@ -1183,6 +1222,9 @@ function showPoint(kind, f) {
     h = head('Lab cache', f.name) + '<dl>' + row('Stop', f.desc) + row('Comment', f.note) + '</dl>';
   } else {
     h = head(STOPS[f.stop] ? STOPS[f.stop][0] : 'Point of interest', f.name || 'Unnamed stop') + '<dl>' + row('Notes', f.notes) + row('Google rating', f.g) + row('AllTrails rating', f.at) + row('Trail length', f.len) + row('Beer rating', f.beer) + '</dl>';
+    var vv = visitOf(f);
+    h += vv ? '<div class="incounty"><div><div class="kicker">Visited</div><b>' + esc(vv.t) + '</b></div><button class="link" type="button" data-act="unvisit" data-id="' + vv.id + '">Undo</button></div>'
+            : '<div class="row"><button class="btn primary" type="button" data-act="visit">Mark visited</button></div>';
   }
   if (c) h += '<div class="incounty"><div><div class="kicker">In</div><b>' + esc(fullName(c)) + '</b> · ' + STATUS[eff(c)] + '</div>' +
     (eff(c) === 1 ? '' : '<button class="btn primary" type="button" data-act="set" data-id="' + esc(c.id) + '" data-g="1" data-stay="1">Mark county found</button>') + '</div>';
@@ -1236,7 +1278,8 @@ function showLayers() {
     ['route', 'Planned route', D.route.length + ' segments', '<span class="ln"></span>'],
     ['caches', 'Planned geocaches', D.caches.length.toLocaleString() + ' · blue county, red special', '<span class="pt" style="background:var(--cache)"></span>'],
     ['labs', 'Lab caches', D.labs.length.toLocaleString() + ' stops', '<span class="tri"></span>'],
-    ['pois', 'Points of interest', D.pois.length.toLocaleString() + ' in this data', STOPS[3][1]]
+    ['pois', 'Points of interest', D.pois.length.toLocaleString() + ' in this data', STOPS[3][1]],
+    ['visits', 'Visited on this phone', visits.length + ' places · press and hold the map to add one', HICONS.check]
   ]);
   var h = head(mode === 'hist' ? 'History map' : 'Planning map', 'Layers') + '<ul class="toggles">';
   items.forEach(function (it) {
@@ -1266,7 +1309,7 @@ function csvText(rows) {
 }
 function showExport() {
   var rows = changeList(), pend = rows.filter(function (r) { return !r.e.done; });
-  var h = head('County changes', pend.length ? pend.length + (pend.length === 1 ? ' change' : ' changes') + ' to save' : 'Nothing new to save');
+  var h = head('Changes to save', pend.length ? pend.length + (pend.length === 1 ? ' county change' : ' county changes') : 'No new county changes');
   if (!rows.length) h += '<p class="note">Tap a county and pick Found, Not Found or Hidden. Each change is listed here until you save it to a file for ArcGIS Pro.</p>';
   else {
     h += '<ul class="changes">';
@@ -1275,12 +1318,19 @@ function showExport() {
       '<div class="row"><button class="btn" type="button" data-act="copycsv">Copy as text</button></div>' +
       '<p class="note">Saved changes stay on the map here. The file lists each county ID with its new GEOCACHE code (0 Hidden, 1 Found, 2 Not Found).</p>';
   }
+  var vs = visits.slice().sort(function (a, b) { return a.t < b.t ? 1 : -1; }), vp = vs.filter(function (v) { return !v.done; });
+  h += '<h3 class="sub">Places visited</h3>';
+  h += '<div class="row"><button class="btn" type="button" data-act="addhere">Add a place here</button></div>';
+  if (!vs.length) h += '<p class="note">Open a planned place and tap Mark visited. For a place that was not planned, tap Add a place here (your GPS position, or the middle of the map), or press and hold the map.</p>';
+  else {
+    h += '<ul class="changes">';
+    vs.forEach(function (v) { h += '<li class="' + (v.done ? 'done' : '') + '"><span>' + esc(v.name || 'Unnamed') + ' <small style="color:var(--muted)">· ' + esc(STOPS[v.stop] ? STOPS[v.stop][0] : '') + '</small></span><span>' + esc(v.t.slice(5)) + ' <button class="link" type="button" data-act="delvisit" data-id="' + v.id + '" aria-label="Remove" style="padding:0 0 0 8px">×</button></span></li>'; });
+    h += '</ul><div class="row"><button class="btn primary" type="button" data-act="savevisits"' + (vp.length ? '' : ' disabled') + '>Save new visits as CSV</button><button class="btn" type="button" data-act="savevisitsall">Save all ' + vs.length + '</button></div>' +
+      '<p class="note">Give this file to Close Out Trip in ArcGIS Pro along with your GPS tracks.</p>';
+  }
   openSheet(h);
 }
-function saveCsv(all) {
-  var rows = changeList().filter(function (r) { return all || !r.e.done; }); if (!rows.length) return;
-  var text = csvText(rows), name = 'county_changes_' + new Date().toISOString().slice(0, 10) + '.csv';
-  var done = function () { rows.forEach(function (r) { r.e.done = true; }); store.set('edits', edits); redrawCounties(); refreshChrome(); showExport(); toast('Saved ' + rows.length + (rows.length === 1 ? ' change' : ' changes')); };
+function saveText(name, text, done) {
   if (IN_PREVIEW) {
     window.claude.use('downloads').then(function (dl) {
       if (!dl) { showCsvText(text); return; }
@@ -1292,6 +1342,21 @@ function saveCsv(all) {
       document.body.appendChild(a); a.click(); a.remove(); done();
     } catch (e) { showCsvText(text); }
   }
+}
+function saveVisitsCsv(all) {
+  var vs = visits.filter(function (v) { return all || !v.done; }); if (!vs.length) return;
+  var q = function (v) { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  var out = ['STOP_TYPE,NAME,LAT,LON,VISITED,URL,NOTES,G_RATING,AT_RATING,TRAIL_LEN,SOURCE'];
+  vs.forEach(function (v) { out.push([v.stop, v.name, v.y, v.x, v.t, v.url, v.notes, v.g, v.at, v.len, v.pk ? 'Planned' : 'Added'].map(q).join(',')); });
+  saveText('visits_' + new Date().toISOString().slice(0, 10) + '.csv', out.join('\r\n') + '\r\n', function () {
+    vs.forEach(function (v) { v.done = true; }); store.set('visits', visits); refreshChrome(); showExport(); toast('Saved ' + vs.length + (vs.length === 1 ? ' visit' : ' visits'));
+  });
+}
+function saveCsv(all) {
+  var rows = changeList().filter(function (r) { return all || !r.e.done; }); if (!rows.length) return;
+  var text = csvText(rows), name = 'county_changes_' + new Date().toISOString().slice(0, 10) + '.csv';
+  var done = function () { rows.forEach(function (r) { r.e.done = true; }); store.set('edits', edits); redrawCounties(); refreshChrome(); showExport(); toast('Saved ' + rows.length + (rows.length === 1 ? ' change' : ' changes')); };
+  saveText(name, text, done);
 }
 function showCsvText(text) {
   showExport();
@@ -1308,7 +1373,7 @@ function copyText(t, msg) {
 var toastTimer = null;
 function toast(msg) { var t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.hidden = true; }, 3200); }
 function refreshChrome() {
-  var n = pendingCount(), b = $('badge'); b.hidden = !n; b.textContent = n;
+  var n = pendingCount() + visits.filter(function (v) { return !v.done; }).length, b = $('badge'); b.hidden = !n; b.textContent = n;
   var f = 0, nf = 0; D.counties.forEach(function (c) { var g = eff(c); if (g === 1) f++; else if (g === 2) nf++; });
   var t = $('tally'); t.hidden = false;
   t.innerHTML = '<div><i class="dot" style="background:var(--found)"></i><b>' + f.toLocaleString() + '</b> <span>found</span></div><div><i class="dot" style="background:var(--notfound)"></i><b>' + nf.toLocaleString() + '</b> <span>to find</span></div>';
@@ -1326,6 +1391,19 @@ function wire() {
     }
     else if (act === 'undo' && c) { setStatus(c, c.g); showCounty(c); toast('Change undone'); }
     else if (act === 'save') saveCsv(false);
+    else if (act === 'visit' && sheet._point) { markVisited(sheet._point.f); showPoint(sheet._point.kind, sheet._point.f); }
+    else if (act === 'unvisit') { removeVisit(b.getAttribute('data-id')); if (sheet._point) showPoint(sheet._point.kind, sheet._point.f); toast('Visit removed'); }
+    else if (act === 'delvisit') { removeVisit(b.getAttribute('data-id')); showExport(); }
+    else if (act === 'savevisits') saveVisitsCsv(false);
+    else if (act === 'addhere') addPlaceForm(hereLatLng());
+    else if (act === 'savevisitsall') saveVisitsCsv(true);
+    else if (act === 'vtype') { sheet.querySelectorAll('[data-act=vtype]').forEach(function (x) { x.setAttribute('aria-pressed', x === b); }); }
+    else if (act === 'addvisit' && sheet._ll) {
+      var nm = ($('vName').value || '').trim(); if (!nm) { toast('Give the place a name'); $('vName').focus(); return; }
+      var tb = sheet.querySelector('[data-act=vtype][aria-pressed=true]');
+      visits.push({ id: Date.now(), stop: tb ? +tb.getAttribute('data-t') : 6, name: nm, x: +sheet._ll.lng.toFixed(5), y: +sheet._ll.lat.toFixed(5), t: nowLocal(), notes: ($('vNotes').value || '').trim() || null });
+      saveVisits(); closeSheet(); toast(nm + ' saved as visited');
+    }
     else if (act === 'saveall') saveCsv(true);
     else if (act === 'pick') $('filePick').click();
     else if (act === 'hit' && sheet._hits) openHit(sheet._hits[+b.getAttribute('data-i')]);
@@ -1350,7 +1428,7 @@ function wire() {
       if (watch != null) { if (me) map.setView(me.getLatLng(), Math.max(map.getZoom(), 12)); return; }
       first = true;
       watch = navigator.geolocation.watchPosition(function (p) {
-        var ll = [p.coords.latitude, p.coords.longitude];
+        var ll = [p.coords.latitude, p.coords.longitude]; lastFix = { ll: L.latLng(ll), t: Date.now() };
         if (!me) me = L.marker(ll, { interactive: false, keyboard: false, icon: L.divIcon({ className: '', iconSize: [16, 16], iconAnchor: [11, 11], html: '<div class="me"></div>' }) }).addTo(map); else me.setLatLng(ll);
         loc.setAttribute('aria-pressed', 'true');
         if (first) { first = false; map.setView(ll, Math.max(map.getZoom(), 11)); }
