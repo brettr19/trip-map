@@ -730,7 +730,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 .sheet.open { transform: none; }
 @media (prefers-reduced-motion: reduce) { .sheet { transition: none; } }
 .itin { position: absolute; left: 0; right: 0; bottom: 0; z-index: 550; background: var(--panel); border-radius: 16px 16px 0 0; box-shadow: 0 -4px 18px rgba(0,0,0,.25);
-  max-height: 78%; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px 16px calc(16px + env(safe-area-inset-bottom, 0px)); }
+  max-height: min(78%, calc(100% - 282px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))); overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px 16px calc(16px + env(safe-area-inset-bottom, 0px)); }
 @media (min-width: 900px) {
   .itin { top: 0; bottom: 0; right: auto; width: 420px; max-height: none; border-radius: 0; box-shadow: 2px 0 14px rgba(0,0,0,.18); padding-top: calc(12px + env(safe-area-inset-top, 0px)); }
   body.itin-open #map { left: 420px; }
@@ -931,6 +931,12 @@ textarea { width: 100%; min-height: 120px; margin-top: 12px; font: 12px/1.4 var(
 .loading p { max-width: 30em; color: var(--muted); }
 .clabel { position: absolute; transform: translate(-50%, -50%); white-space: nowrap; font-size: 11px; font-weight: 600; color: var(--label); text-shadow: 0 0 3px var(--label-halo), 0 0 3px var(--label-halo), 0 0 2px var(--label-halo); pointer-events: none; }
 .me { width: 16px; height: 16px; border-radius: 50%; background: #1a73e8; border: 3px solid #ffffff; box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.35); }
+.mewrap { position: relative; width: 40px; height: 40px; display: grid; place-items: center; pointer-events: none; }
+.mewrap .me { position: relative; z-index: 1; }
+.mewrap .hdg { display: none; position: absolute; inset: 0; transform-origin: 50% 50%; }
+.mewrap .hdg::before { content: ''; position: absolute; left: 50%; top: 0; margin-left: -7px; border-left: 7px solid transparent; border-right: 7px solid transparent; border-bottom: 13px solid #1a73e8; filter: drop-shadow(0 0 1px #fff); }
+.fab.track { box-shadow: var(--shadow), inset 0 0 0 2px var(--accent); }
+.fab.track svg { stroke: var(--accent); }
 </style>
 
 <div id="app">
@@ -1645,20 +1651,70 @@ function wire() {
   $('mPlan').addEventListener('click', function () { setMode('plan'); });
   $('mHist').addEventListener('click', function () { setMode('hist'); });
   $('btnExport').addEventListener('click', showExport);
-  var me = null, watch = null, first = true, loc = $('btnLocate');
+  /* location: tap once to show and follow, drag the map to look around (following pauses), tap to follow again,
+     tap while following to turn location off. While following, the screen is kept awake where the phone allows. */
+  var me = null, watch = null, first = true, follow = false, wake = null, autoPan = false, lostMsg = false, loc = $('btnLocate');
+  var setLoc = function () {
+    loc.setAttribute('aria-pressed', follow ? 'true' : 'false');
+    loc.classList.toggle('track', watch != null && !follow);
+    var t = watch == null ? 'Show and follow my location' : follow ? 'Following you. Tap to turn location off' : 'Follow my location again';
+    loc.setAttribute('aria-label', t); loc.title = t;
+  };
+  var keepAwake = function (on) {
+    try {
+      if (on && !wake && navigator.wakeLock) navigator.wakeLock.request('screen').then(function (w) { wake = w; w.addEventListener('release', function () { wake = null; }); }).catch(function () {});
+      else if (!on && wake) { wake.release(); wake = null; }
+    } catch (e) {}
+  };
+  var freeCenter = function () {                              // the middle of the part of the map not covered by a panel
+    var r = map.getContainer().getBoundingClientRect(), x0 = r.left, x1 = r.right, y0 = r.top, y1 = r.bottom;
+    [$('itin'), sheet].forEach(function (el) {
+      if (!el || el.hidden || (el === sheet && !el.classList.contains('open'))) return;
+      var b = el.getBoundingClientRect(); if (!b.width || !b.height) return;
+      if (b.width >= r.width * 0.8) { if (b.top > y0 + 60) y1 = Math.min(y1, b.top); }   // bottom sheet on a phone
+      else if (b.left <= x0 + 4) x0 = Math.max(x0, b.right);                              // side panel on a computer
+    });
+    var tl = document.querySelector('.topleft'), tb = tl && tl.getBoundingClientRect();
+    if (tb && tb.height && y1 - tb.bottom > 90) y0 = Math.max(y0, tb.bottom);                // below the map/history switch and counts
+    if (y1 - y0 < 120) { y0 = r.top; y1 = r.bottom; }
+    return L.point((x0 + x1) / 2 - r.left, (y0 + y1) / 2 - r.top);
+  };
+  var centerOn = function (ll, animate) {
+    var tgt = freeCenter(), mid = map.getSize().divideBy(2), shift = tgt.subtract(mid);
+    var c = map.containerPointToLatLng(map.latLngToContainerPoint(ll).subtract(shift));
+    autoPan = true; map.panTo(c, { animate: animate, duration: 0.6, noMoveStart: false }); setTimeout(function () { autoPan = false; }, 700);
+  };
+  var stopLoc = function () {
+    if (watch != null) navigator.geolocation.clearWatch(watch); watch = null; follow = false; keepAwake(false);
+    if (me) { map.removeLayer(me); me = null; } setLoc();
+  };
   if (!IN_PREVIEW && navigator.geolocation) {
     loc.hidden = false;
+    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible' && follow) keepAwake(true); });
+    var hooked = false;
     loc.addEventListener('click', function () {
-      if (watch != null) { if (me) map.setView(me.getLatLng(), Math.max(map.getZoom(), 12)); return; }
-      first = true;
+      if (!hooked) { hooked = true; map.on('dragstart', function () { if (follow && !autoPan) { follow = false; keepAwake(false); setLoc(); toast('Following paused. Tap the location button to follow again.'); } }); }
+      if (watch != null && follow) { stopLoc(); toast('Location off'); return; }
+      if (watch != null) { follow = true; keepAwake(true); setLoc(); if (me) { if (map.getZoom() < 11) map.setZoom(13, { animate: false }); centerOn(me.getLatLng(), true); } return; }
+      first = true; follow = true; keepAwake(true); setLoc();
       watch = navigator.geolocation.watchPosition(function (p) {
-        var ll = [p.coords.latitude, p.coords.longitude]; lastFix = { ll: L.latLng(ll), t: Date.now() };
-        if (!me) me = L.marker(ll, { interactive: false, keyboard: false, icon: L.divIcon({ className: '', iconSize: [16, 16], iconAnchor: [11, 11], html: '<div class="me"></div>' }) }).addTo(map); else me.setLatLng(ll);
-        loc.setAttribute('aria-pressed', 'true');
-        if (first) { first = false; map.setView(ll, Math.max(map.getZoom(), 11)); }
-      }, function () { toast('Location is not available. Check location permission for this site.'); navigator.geolocation.clearWatch(watch); watch = null; loc.setAttribute('aria-pressed', 'false'); },
-      { enableHighAccuracy: true, maximumAge: 10000 });
+        var ll = L.latLng(p.coords.latitude, p.coords.longitude), hd = p.coords.heading, sp = p.coords.speed;
+        lastFix = { ll: ll, t: Date.now() };
+        if (!me) me = L.marker(ll, { interactive: false, keyboard: false, zIndexOffset: 1000, icon: L.divIcon({ className: '', iconSize: [40, 40], iconAnchor: [20, 20], html: '<div class="mewrap"><div class="hdg"></div><div class="me"></div></div>' }) }).addTo(map); else me.setLatLng(ll);
+        var el = me.getElement && me.getElement(), arrow = el && el.querySelector('.hdg');
+        if (arrow) { var moving = hd != null && !isNaN(hd) && (sp == null || sp > 1); arrow.style.display = moving ? 'block' : 'none'; if (moving) arrow.style.transform = 'rotate(' + Math.round(hd) + 'deg)'; }
+        if (first) { first = false; map.setView(ll, Math.max(map.getZoom(), 13), { animate: false }); centerOn(ll, false); }
+        else if (follow) centerOn(ll, true);
+        if (lostMsg) { lostMsg = false; toast('Location signal is back'); }
+      }, function (err) {
+        if (err && err.code === 1) { toast('Location is blocked. Allow location for this site in the phone settings.'); stopLoc(); return; }
+        // a tunnel or a weak signal: keep watching, the next fix carries on where this left off
+        if (!lostMsg && me) { lostMsg = true; toast('Waiting for a location signal\u2026'); }
+        else if (!me) toast('Looking for your location\u2026');
+      }, { enableHighAccuracy: true, maximumAge: 5000 });
+      setLoc();
     });
+    setLoc();
   }
   var mq = window.matchMedia('(prefers-color-scheme: dark)'), retheme = function () { setTimeout(redrawCounties, 0); };
   if (mq.addEventListener) mq.addEventListener('change', retheme);
