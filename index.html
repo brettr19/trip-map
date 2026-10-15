@@ -884,6 +884,11 @@ body.drag-stop, body.drag-stop * { -webkit-user-select: none !important; user-se
 .ors summary { cursor: pointer; font-weight: 600; min-height: 32px; }
 .ors input { width: 100%; margin-top: 6px; font-family: var(--mono); font-size: 13px; }
 .wpnum { width: 22px; height: 22px; border-radius: 50%; background: var(--itin); color: #ffffff; font: 700 12px/22px var(--ui); text-align: center; box-shadow: 0 0 0 2px #ffffff; }
+.wpicon { display: grid; place-items: center; cursor: pointer; }   /* a 30 px tap target around the 22 px number */
+.wpn { flex: none; display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 4px; box-sizing: border-box; border-radius: 10px; background: var(--itin); color: #ffffff; font: 700 11px/1 var(--ui); }
+.plan li.flash { animation: flash 1.6s ease-out; }
+@keyframes flash { 0%, 30% { background: color-mix(in srgb, var(--itin) 22%, transparent); } 100% { background: transparent; } }
+@media (prefers-reduced-motion: reduce) { .plan li.flash { animation: none; outline: 2px solid var(--itin); } }
 @media (min-width: 720px) { .sheet { left: 16px; right: auto; bottom: 16px; width: 380px; border-radius: 16px; } }
 .sheet-head { display: flex; gap: 12px; align-items: flex-start; }
 .sheet-head > div { flex: 1; min-width: 0; }
@@ -1930,6 +1935,18 @@ function waypoints(day) {
   if (day.end) w.push(day.end);
   return w;
 }
+function showStopFromMap(day, p, lab) {
+  if ($('itin').hidden) openItin();
+  if (itinView !== 'plan') { itinView = 'plan'; store.set('itinView', itinView); renderItin(); }
+  var i = day.stops.indexOf(p), row = i >= 0 ? $('itin').querySelector('.plan .what[data-i="' + i + '"]') : $('itin').querySelector('.plan li.ends .wpn[data-l="' + lab + '"]');
+  var li = row && row.closest('li');
+  if (li) {
+    li.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    li.classList.remove('flash'); void li.offsetWidth; li.classList.add('flash');
+  }
+  if (i >= 0) editStop(i);
+}
+function wpLabel(day, j, n) { return day.start && j === 0 ? 'S' : day.end && j === n - 1 ? 'E' : String(day.start ? j : j + 1); }
 function wkey(day) { return waypoints(day).map(function (p, j) { return p.x.toFixed(5) + ',' + p.y.toFixed(5) + (j ? ':' + modeOf(p) : ''); }).join(';'); }
 
 /* schedule: walk the day from the start time, adding drive times and stays */
@@ -2374,10 +2391,12 @@ function drawItin() {
     });
   });
   var d = D.itin.days[curDay];
-  if (d) waypoints(d).forEach(function (p, j) {
-    g.addLayer(L.marker([p.y, p.x], { interactive: false, keyboard: false, zIndexOffset: 500,
-      icon: L.divIcon({ className: '', iconSize: [22, 22], iconAnchor: [11, 30], html: '<div class="wpnum">' + (d.start && j === 0 ? 'S' : d.end && j === waypoints(d).length - 1 ? 'E' : (d.start ? j : j + 1)) + '</div>' }) }));
-  });
+  if (d) { var wp = waypoints(d); wp.forEach(function (p, j) {
+    var lab = wpLabel(d, j, wp.length), m = L.marker([p.y, p.x], { interactive: true, keyboard: true, title: lab + ' \u00b7 ' + (p.name || ''), alt: 'Stop ' + lab + ', ' + (p.name || ''), zIndexOffset: 500, bubblingMouseEvents: false,
+      icon: L.divIcon({ className: 'wpicon', iconSize: [30, 30], iconAnchor: [15, 34], html: '<div class="wpnum">' + lab + '</div>' }) });
+    m.on('click', function (ev) { if (ev.originalEvent) L.DomEvent.stop(ev.originalEvent); showStopFromMap(d, p, lab); });
+    g.addLayer(m);
+  }); }
 }
 
 /* ---------- itinerary panel ---------- */
@@ -2484,11 +2503,12 @@ function renderItin() {
         return;
       }
       if (r.leg || (wpIdx > 0)) h += legRow(r.leg, day, wpIdx, s);
+      var lbl = wpLabel(day, wpIdx, waypoints(day).length);
       wpIdx++;
       var sunW = sunWarn(day, s, r);
       var zl = sc.zones > 1 && r.arrive != null ? '<span class="tz">' + esc(zoneAbbr(day, s)) + '</span>' : '';
       h += '<li class="stop' + (r.late ? ' late' : '') + (stopDone(s) ? ' isdone' : '') + '"><div class="when">' + (r.arrive != null ? clock(r.arrive) : '') + (r.leave != null && r.leave !== r.arrive ? '<br><span>' + clock(r.leave) + '</span>' : '') + zl + '</div>' +
-        '<div class="what" data-it="edit" data-i="' + i + '" role="button" tabindex="0" aria-label="Edit ' + esc(s.name) + '"><b>' + (STOPS[stopType(s)] ? '<i class="ic">' + STOPS[stopType(s)][1] + '</i>' : '') + esc(s.name) + (stopDone(s) ? '<span class="done" title="' + (isCacheStop(s) ? 'Found' : 'Visited') + '">\u2713</span>' : '') + '</b>' +
+        '<div class="what" data-it="edit" data-i="' + i + '" role="button" tabindex="0" aria-label="Edit ' + esc(s.name) + '"><b><span class="wpn" title="Stop ' + lbl + ' on the map">' + lbl + '</span>' + (STOPS[stopType(s)] ? '<i class="ic">' + STOPS[stopType(s)][1] + '</i>' : '') + esc(s.name) + (stopDone(s) ? '<span class="done" title="' + (isCacheStop(s) ? 'Found' : 'Visited') + '">\u2713</span>' : '') + '</b>' +
         (r.late ? '<div class="warn">Arrives ' + clock(r.eta) + ', ' + dur(r.late) + ' after the ' + clock(hm(s.arrive)) + ' plan</div>' : '') +
         stopWx(day, s, r.arrive) + (r.short ? '<div class="warn">Less than 5 minutes here</div>' : '') + (sunW ? '<div class="warn">' + esc(sunW) + '</div>' : '') +
         (s.hours ? '<div class="pnote">Hours: ' + esc(s.hours) + '</div>' : '') + (s.notes ? '<div class="pnote">' + esc(s.notes) + '</div>' : '') + '</div>' +
@@ -2519,7 +2539,8 @@ function renderItin() {
 }
 function placeRow(p, which, when, zone) {
   if (!p) return '<li class="ends empty"><div class="when"></div><div class="what">' + (which === 'start' ? 'No start yet' : 'No end yet') + ' <small>· tap a place, then ' + (which === 'start' ? 'Start day' : 'End day') + '</small></div></li>';
-  return '<li class="ends"><div class="when">' + esc(when.replace(/^(Leave|Arrive) /, '')) + (zone && when ? '<span class="tz">' + esc(zone) + '</span>' : '') + '</div><div class="what"><span class="kicker">' + (which === 'start' ? 'Start' : 'End') + '</span><b>' + esc(p.name) + '</b></div>' +
+  var L0 = which === 'start' ? 'S' : 'E';
+  return '<li class="ends"><div class="when">' + esc(when.replace(/^(Leave|Arrive) /, '')) + (zone && when ? '<span class="tz">' + esc(zone) + '</span>' : '') + '</div><div class="what"><span class="kicker">' + (which === 'start' ? 'Start' : 'End') + '</span><b><span class="wpn" data-l="' + L0 + '" title="' + (which === 'start' ? 'Start' : 'End') + ' on the map">' + L0 + '</span>' + esc(p.name) + '</b></div>' +
     '<div class="acts">' + (which === 'end' ? navLink(p, modeOf(p), 'nav') : '') + '<button type="button" data-it="clear' + which + '" aria-label="Remove ' + which + '">×</button></div></li>';
 }
 function legRow(leg, day, j, dest) {
