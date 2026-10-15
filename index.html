@@ -1166,15 +1166,15 @@ function showPoint(kind, f) {
   if (kind === 'hfound') {
     h = head('Found cache · ' + f.code, f.name || f.code) + '<dl>' + row('Found', fmt(f.fd)) + row('Type', f.type) + row('Difficulty / terrain', (f.d != null ? f.d : '?') + ' / ' + (f.t != null ? f.t : '?')) + row('Size', f.size) + row('Favorites', f.fav) + (f.arch ? row('Status', 'Archived') : '') + '</dl>';
   } else if (kind === 'hbrew') {
-    h = head(f.closed ? 'Brewery visited · now closed' : 'Brewery visited', f.name) + '<dl>' + row('Where', place(f)) + row('Address', f.addr) + row('Comment', f.note) + '</dl>';
+    h = head(f.closed ? 'Brewery visited · now closed' : 'Brewery visited', f.name) + '<dl>' + row('Visited', fmt(f.vd)) + row('Where', place(f)) + row('Address', f.addr) + row('Comment', f.note) + '</dl>';
   } else if (kind === 'huntappd') {
     h = head('Untappd top brewery' + (f.rank ? ' · #' + f.rank : ''), f.name) + '<dl>' + row('Visited', f.visited ? 'Yes' : 'Not yet') + row('Type', f.kind) + row('Part of', f.sub) + '</dl>';
   } else if (kind === 'hguster') {
     h = head('Guster show', f.name) + '<dl>' + row('Date', fmt(f.date)) + row('Where', place(f)) + row('Note', f.note) + '</dl>';
   } else if (kind === 'hhikes') {
-    h = head('Hike completed', f.name) + '<dl>' + row('Length', f.mi != null ? f.mi + ' mi' : null) + row('Trail type', f.kind) + row('AllTrails rating', f.rt) + '</dl>';
+    h = head('Hike completed', f.name) + '<dl>' + row('Hiked', fmt(f.vd)) + row('Length', f.mi != null ? f.mi + ' mi' : null) + row('Trail type', f.kind) + row('AllTrails rating', f.rt) + '</dl>';
   } else if (kind === 'hparks') {
-    h = head('Park, garden or viewpoint', f.name) + '<dl>' + row('Google rating', f.rt) + '</dl>';
+    h = head('Park, garden or viewpoint', f.name) + '<dl>' + row('Visited', fmt(f.vd)) + row('Google rating', f.rt) + '</dl>';
   } else if (kind === 'cache') {
     h = head((f.cat === 9 ? 'Special cache' : 'County cache') + ' · ' + f.code, f.name) + '<dl>' +
       row('Type', f.type) + row('Difficulty / terrain', (f.d != null ? f.d : '?') + ' / ' + (f.t != null ? f.t : '?')) + row('Size', f.size) + row('Owner', f.owner) +
