@@ -811,6 +811,9 @@ body.drag-stop, body.drag-stop * { -webkit-user-select: none !important; user-se
 .plan .what .wx { color: var(--muted); font-size: 13px; margin-top: 1px; }
 .plan .what b .done { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; background: var(--found); color: #fff; font-size: 12px; margin-left: 2px; flex: none; }
 .plan li.isdone .when { opacity: .6; }
+.plan li.off .what b { color: var(--muted); text-decoration: line-through; font-weight: 600; }
+.plan li.off .ic { opacity: .5; }
+.plan li.off .when .kicker { display: block; }
 .plan .when .tz { display: block; font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: .04em; }
 .plan .tzjump { font-size: 12px; font-weight: 600; color: var(--accent); margin-top: 2px; }
 .search .pin { flex: none; width: 44px; padding: 0; }
@@ -1287,9 +1290,18 @@ function markStop(p, on) {
       p.done = true;
       var c = isGeocacheStop(p) ? countyAt(p.y, p.x) : null;
       if (c && eff(c) !== 1) { p.cty = { id: c.id, prev: eff(c) }; setStatus(c, 1); msg = fullName(c) + ' now Found'; }
+      if (c) {
+        var dd = D.itin.days[curDay], at = dd.stops.indexOf(p), nsk = 0;
+        dd.stops.forEach(function (o, k) {
+          if (k > at && o !== p && isGeocacheStop(o) && !o.done && !o.dnf && !o.skip) { var oc = countyAt(o.y, o.x); if (oc && oc.id === c.id) { o.skip = p.id; o.skipName = p.name; nsk++; } }
+        });
+        if (nsk) msg = (msg ? msg + ' \u00b7 ' : '') + nsk + (nsk === 1 ? ' backup skipped' : ' backups skipped');
+      }
     } else {
       delete p.done;
-      if (p.cty) { var c2 = byId(p.cty.id); if (c2 && eff(c2) === 1) { setStatus(c2, p.cty.prev); msg = fullName(c2) + ' back to ' + STATUS[p.cty.prev]; } delete p.cty; }
+      var back = 0; D.itin.days.forEach(function (dd) { dd.stops.forEach(function (o) { if (o.skip != null && String(o.skip) === String(p.id)) { delete o.skip; delete o.skipName; back++; } }); });
+      if (back) msg = back + (back === 1 ? ' backup back in the plan' : ' backups back in the plan');
+      if (p.cty) { var c2 = byId(p.cty.id); if (c2 && eff(c2) === 1) { setStatus(c2, p.cty.prev); msg = (msg ? msg + ' \u00b7 ' : '') + fullName(c2) + ' back to ' + STATUS[p.cty.prev]; } delete p.cty; }
     }
     saveItin(); return msg;
   }
@@ -1631,7 +1643,7 @@ function wire() {
     else if ((act === 'layersall' || act === 'layersnone') && sheet._layerKeys) { sheet._layerKeys.forEach(function (k) { show[k] = act === 'layersall'; }); store.set('show', show); applyLayers(); drawLabels(); showLayers(); }
     else if (act === 'nfgo') { var cc = byId(b.getAttribute('data-id')); if (cc) { closeSheet(); map.fitBounds([[unmy(cc.b[3]), cc.b[0] * 360 - 180], [unmy(cc.b[1]), cc.b[2] * 360 - 180]], { padding: [40, 40], maxZoom: 12 }); setTimeout(function () { showCounty(cc); }, 400); } }
     else if ((act === 'itadd' || act === 'itstart' || act === 'itend') && sheet._point) { addToItin(sheet._point.kind, sheet._point.f, act === 'itstart' ? 'start' : act === 'itend' ? 'end' : 'stop'); closeSheet(); }
-    else if (/^stop(save|up|down|del|move|visit|unvisit)$/.test(act)) stopAction(act, +b.getAttribute('data-i'));
+    else if (/^stop(save|up|down|del|move|visit|unvisit|dnf|back)$/.test(act)) stopAction(act, +b.getAttribute('data-i'));
     else if (act === 'stopto') { var dd = D.itin.days[curDay], st = dd.stops.splice(+b.getAttribute('data-i'), 1)[0], to = D.itin.days[+b.getAttribute('data-j')]; to.stops.push(st); scheduleRoute(dd); scheduleRoute(to); saveItin(); drawItin(); renderItin(); closeSheet(); toast('Moved to ' + dayLabel(to, +b.getAttribute('data-j'))); }
     else if (act === 'visit' && sheet._point) { markVisited(sheet._point.f); showPoint(sheet._point.kind, sheet._point.f); }
     else if (act === 'unvisit') { removeVisit(b.getAttribute('data-id')); if (sheet._point) showPoint(sheet._point.kind, sheet._point.f); toast('Visit removed'); }
@@ -1910,10 +1922,11 @@ function saveItin() {
 }
 var MODES = { drive: { name: 'Drive', profile: 'driving-car', mph: 50, extra: 5 }, walk: { name: 'Walk', profile: 'foot-walking', mph: 3, extra: 0 }, bike: { name: 'Bike', profile: 'cycling-regular', mph: 10, extra: 0 } };
 function isNote(s) { return s && s.kind === 'note'; }
+function isOff(s) { return !!s && !isNote(s) && !!(s.dnf || s.skip); }
 function modeOf(p) { return MODES[p && p.mode] ? p.mode : 'drive'; }
 function waypoints(day) {
   var w = []; if (day.start) w.push(day.start);
-  day.stops.forEach(function (s) { if (!isNote(s)) w.push(s); });
+  day.stops.forEach(function (s) { if (!isNote(s) && !isOff(s)) w.push(s); });
   if (day.end) w.push(day.end);
   return w;
 }
@@ -1930,6 +1943,7 @@ function schedule(day) {
   var legAt = function () { var l = legs ? legs[li] : null; li++; return l; };
   day.stops.forEach(function (s, i) {
     if (isNote(s)) { out.stops.push({ note: true }); return; }
+    if (isOff(s)) { out.stops.push({ off: true }); return; }
     var d = dz(s), loc = function (m) { return m == null ? null : m - d; }, sh = function (m) { return m == null ? null : m + d; };
     var first = !seen, leg = seen ? legAt() : null, eta = null; seen = true;
     if (t != null) eta = t + (leg ? leg.min : 0);
@@ -2446,9 +2460,12 @@ function renderItin() {
     h += dayWxHtml(day);
     var today = new Date(), iso = today.getFullYear() + '-' + ('0' + (today.getMonth() + 1)).slice(-2) + '-' + ('0' + today.getDate()).slice(-2);
     if (day.date === iso) {
-      var now = today.getHours() * 60 + today.getMinutes(), nx = null;
-      sc.stops.forEach(function (s, i) { if (nx == null && !s.note && s.leave != null && s.leave >= now) nx = i; });
-      if (nx != null) h += '<div class="today"><div>Today · next: <b>' + esc(day.stops[nx].name) + '</b> ' + (sc.stops[nx].arrive > now ? 'arrive ' + clock(sc.stops[nx].arrive) : 'leave by ' + clock(sc.stops[nx].leave)) + '</div>' + navLink(day.stops[nx], modeOf(day.stops[nx]), '', 'Go') + '</div>';
+      var now = today.getHours() * 60 + today.getMinutes(), nx = null, lastDone = -1, live = function (k) { var r = sc.stops[k]; return r && !r.note && !r.off; };
+      day.stops.forEach(function (st, k) { if (live(k) && stopDone(st)) lastDone = k; });
+      if (lastDone >= 0) { for (var k = lastDone + 1; k < day.stops.length; k++) if (live(k) && !stopDone(day.stops[k])) { nx = k; break; } }
+      else sc.stops.forEach(function (r, k) { if (nx == null && live(k) && !stopDone(day.stops[k]) && r.leave != null && r.leave >= now) nx = k; });
+      if (nx != null) h += '<div class="today"><div>Today \u00b7 next: <b>' + esc(day.stops[nx].name) + '</b> ' + (sc.stops[nx].arrive > now ? 'arrive ' + clock(sc.stops[nx].arrive) : 'leave by ' + clock(sc.stops[nx].leave)) + '</div>' + navLink(day.stops[nx], modeOf(day.stops[nx]), '', 'Go') + '</div>';
+      else if (lastDone >= 0 && day.end) h += '<div class="today"><div>Today \u00b7 next: <b>' + esc(day.end.name) + '</b>' + (sc.end != null ? ' arrive ' + clock(sc.end) : '') + '</div>' + navLink(day.end, modeOf(day.end), '', 'Go') + '</div>';
     }
     h += '<ol class="plan">';
     h += placeRow(day.start, 'start', clock(hm(day.depart)) ? 'Leave ' + clock(hm(day.depart)) : '', sc.zones > 1 ? zoneAbbr(day, day.start || {}) : '');
@@ -2458,6 +2475,12 @@ function renderItin() {
       if (r.note) {
         h += '<li class="stop note"><div class="when"><span class="kicker">Note</span></div><div class="what" data-it="edit" data-i="' + i + '" role="button" tabindex="0" aria-label="Edit note"><div class="notetext">' + esc(s.text || '') + '</div></div>' +
           '<div class="acts">' + (day.stops.length > 1 ? GRIP(i, 'note') : '') + '</div></li>';
+        return;
+      }
+      if (r.off) {
+        var why = s.dnf ? (s.stop === 9 || s.kind === 'labs' ? 'Skipped' : 'Didn\u2019t find') : 'Backup not needed' + (s.skipName ? ' \u00b7 found ' + s.skipName : '');
+        h += '<li class="stop off"><div class="when"><span class="kicker">' + (s.dnf && s.stop !== 9 && s.kind !== 'labs' ? 'DNF' : 'Skipped') + '</span></div><div class="what" data-it="edit" data-i="' + i + '" role="button" tabindex="0" aria-label="' + esc(s.name + ', ' + why) + '"><b>' +
+          (STOPS[stopType(s)] ? '<i class="ic">' + STOPS[stopType(s)][1] + '</i>' : '') + esc(s.name) + '</b><div class="pnote">' + esc(why) + '</div></div><div class="acts">' + (day.stops.length > 1 ? GRIP(i, s.name) : '') + '</div></li>';
         return;
       }
       if (r.leg || (wpIdx > 0)) h += legRow(r.leg, day, wpIdx, s);
@@ -2528,8 +2551,11 @@ function editStop(i) {
     '</div>' + (function () {
       var cache = isCacheStop(s), v = stopVisits(s)[0];
       var gc = isGeocacheStop(s), cc = gc ? countyAt(s.y, s.x) : null;
+      if (s.dnf || s.skip) return '<div class="incounty"><div><div class="kicker">' + (s.dnf ? (gc ? 'Didn\u2019t find' : 'Skipped') : 'Backup not needed') + '</div><b>' + esc(s.dnf ? 'Left out of the route' : 'Found ' + (s.skipName || 'another cache') + ' in this county') + '</b></div>' +
+        '<button class="link" type="button" data-act="stopback" data-i="' + i + '">Put back</button></div>';
       if (stopDone(s)) return '<div class="incounty"><div><div class="kicker">' + (cache ? 'Found' : 'Visited') + '</div><b>' + esc(cache ? (s.cty && byId(s.cty.id) ? 'Marked on this phone \u00b7 ' + fullName(byId(s.cty.id)) + ' set to Found' : 'Marked on this phone') : v.t) + '</b></div><button class="link" type="button" data-act="stopunvisit" data-i="' + i + '">Undo</button></div>';
-      return '<div class="row"><button class="btn" type="button" data-act="stopvisit" data-i="' + i + '">' + (cache ? 'Mark found' : 'Mark visited') + '</button></div>' +
+      return '<div class="row"><button class="btn" type="button" data-act="stopvisit" data-i="' + i + '">' + (cache ? 'Mark found' : 'Mark visited') + '</button>' +
+        (cache ? '<button class="btn" type="button" data-act="stopdnf" data-i="' + i + '">' + (gc ? 'Didn\u2019t find' : 'Skip') + '</button>' : '') + '</div>' +
         (gc ? '<p class="note">' + (cc && eff(cc) !== 1 ? 'Also marks ' + esc(fullName(cc)) + ' Found. ' : '') + 'The find itself reaches Pro from the iCaching CSV.</p>'
             : cache ? '<p class="note">A check mark for your plan only. Lab stops don\u2019t count toward county finds.</p>' : '');
     })() +
@@ -2540,8 +2566,18 @@ function editStop(i) {
 }
 function stopAction(act, i) {
   var day = D.itin.days[curDay], s = day.stops[i]; if (!s) return;
+  if (act === 'stopdnf' || act === 'stopback') {
+    if (act === 'stopdnf') s.dnf = true; else { delete s.dnf; delete s.skip; delete s.skipName; }
+    saveItin(); scheduleRoute(day); drawItin(); renderItin();
+    if (act === 'stopdnf') {
+      closeSheet();
+      var nxt = null; for (var k = i + 1; k < day.stops.length; k++) { var o = day.stops[k]; if (!isNote(o) && !isOff(o) && !stopDone(o)) { nxt = o; break; } }
+      toast(isGeocacheStop(s) ? 'Didn\u2019t find ' + s.name + (nxt ? ' \u00b7 next: ' + nxt.name : '') : 'Skipped ' + s.name);
+    } else { editStop(i); toast(s.name + ' is back in the plan'); }
+    return;
+  }
   if (act === 'stopvisit' || act === 'stopunvisit') {
-    var cm = markStop(s, act === 'stopvisit'); drawItin(); renderItin(); editStop(i);
+    var cm = markStop(s, act === 'stopvisit'); scheduleRoute(day); drawItin(); renderItin(); editStop(i);
     toast((act === 'stopvisit' ? s.name + (isCacheStop(s) ? ' marked found' : ' marked visited') : 'Undone') + (cm ? ' \u00b7 ' + cm : ''));
     return;
   }
