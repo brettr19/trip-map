@@ -922,6 +922,8 @@ dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .toggles small { display: block; color: var(--muted); }
 .sw .ln { width: 24px; height: 5px; border-radius: 3px; background: var(--route); }
 .sw .hl { width: 24px; height: 4px; border-radius: 2px; background: var(--hroute); }
+.sw .hl.multi { height: 6px; background: linear-gradient(90deg, #7b2cbf 0 25%, #e4572e 25% 50%, #1f6fd1 50% 75%, #1b8a4b 75%); }
+.tripdot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: 0; }
 .sw .tl { width: 24px; height: 0; border-top: 3px dashed var(--trail); }
 .sw .tri { width: 12px; height: 11px; background: var(--lab); clip-path: polygon(50% 0, 100% 100%, 0 100%); }
 .sw svg, .poi svg { width: 24px; height: 24px; display: block; }
@@ -1003,7 +1005,8 @@ var STOPS = {
 var HICONS = {
   star: SVG('<path fill="#f2b705" stroke="#7a5a00" stroke-width="1" d="M12 2.2l2.9 6.2 6.7.8-5 4.6 1.4 6.7L12 17.1l-6 3.4 1.4-6.7-5-4.6 6.7-.8z"/>'),
   starOpen: SVG('<path fill="#ffffff" stroke="#b08400" stroke-width="2" d="M12 2.2l2.9 6.2 6.7.8-5 4.6 1.4 6.7L12 17.1l-6 3.4 1.4-6.7-5-4.6 6.7-.8z"/>'),
-  note: SVG('<path fill="#1d4e89" d="M9 3.5 20 1.8v13.6a3.2 2.6 0 1 1-2-2.4V6.2l-7 1.2v10a3.2 2.6 0 1 1-2-2.4z"/>')
+  note: SVG('<path fill="#d32f2f" stroke="#ffffff" stroke-width="1.1" stroke-linejoin="round" paint-order="stroke" d="M9 3.5 20 1.8v13.6a3.2 2.6 0 1 1-2-2.4V6.2l-7 1.2v10a3.2 2.6 0 1 1-2-2.4z"/>'),
+  smiley: SVG('<circle cx="12" cy="12" r="10.6" fill="#ffd21f" stroke="#5a4300" stroke-width="1.8"/><circle cx="8.4" cy="9.4" r="1.7" fill="#3b2c00"/><circle cx="15.6" cy="9.4" r="1.7" fill="#3b2c00"/><path d="M6.9 13.4a5.4 5.4 0 0 0 10.2 0" fill="none" stroke="#3b2c00" stroke-width="1.9" stroke-linecap="round"/>')
 };
 HICONS.check = SVG('<circle cx="12" cy="12" r="11" fill="#1f8a3a" stroke="#ffffff" stroke-width="2"/><path d="m6.5 12.5 3.6 3.6 7.4-8" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>');
 STOPS[7] = ['Guster Venue', HICONS.note];
@@ -1091,11 +1094,13 @@ function poiKey(p) { return (p.name || '') + '|' + p.x + '|' + p.y; }
 function visitOf(p) { var k = poiKey(p); for (var i = 0; i < visits.length; i++) if (visits[i].pk === k) return visits[i]; return null; }
 function nowLocal() { var d = new Date(), z = function (n) { return (n < 10 ? '0' : '') + n; }; return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + ' ' + z(d.getHours()) + ':' + z(d.getMinutes()); }
 function saveVisits() { if (!store.set('visits', visits)) toast('This browser is not saving visits. Save a file before closing.'); drawVisits(); refreshChrome(); }
-var MODE_LAYERS = { plan: ['route', 'itin', 'labs', 'caches', 'pois', 'visits'], hist: ['hroutes', 'htrails', 'hfound', 'hhikes', 'hparks', 'huntappd', 'hbrew', 'hguster'] };
-var POINT_LAYERS = { plan: ['pois', 'caches', 'labs'], hist: ['hguster', 'hbrew', 'huntappd', 'hhikes', 'hparks', 'hfound'] };
-var LINE_LAYERS = { plan: [], hist: ['htrails', 'hroutes'] };
+var MODE_LAYERS = { plan: ['route', 'itin', 'labs', 'caches', 'pois', 'visits'], hist: ['hroutes', 'hfound', 'hhikes', 'hparks', 'hbrew', 'hguster'] };
+var POINT_LAYERS = { plan: ['pois', 'caches', 'labs'], hist: ['hguster', 'hbrew', 'hhikes', 'hparks', 'hfound'] };
+var LINE_LAYERS = { plan: [], hist: ['hroutes'] };
+var ZOOM_MIN = { hfound: 5.5, hbrew: 5.5 };           // layers that wait until you zoom in a little
+function zoomOk(k) { return !map || !ZOOM_MIN[k] || map.getZoom() >= ZOOM_MIN[k]; }
 function applyLayers() {
-  ['plan', 'hist'].forEach(function (m) { MODE_LAYERS[m].forEach(function (k) { var g = groups[k]; if (!g) return; var on = m === mode && show[k]; if (on && !map.hasLayer(g)) g.addTo(map); else if (!on && map.hasLayer(g)) map.removeLayer(g); }); });
+  ['plan', 'hist'].forEach(function (m) { MODE_LAYERS[m].forEach(function (k) { var g = groups[k]; if (!g) return; var on = m === mode && show[k] && zoomOk(k); if (on && !map.hasLayer(g)) g.addTo(map); else if (!on && map.hasLayer(g)) map.removeLayer(g); }); });
   if (groups.counties) { if (show.counties && !map.hasLayer(groups.counties)) groups.counties.addTo(map); else if (!show.counties && map.hasLayer(groups.counties)) map.removeLayer(groups.counties); }
 }
 function setMode(m) {
@@ -1177,7 +1182,7 @@ L.Canvas.include({ _updateTriangle: function (layer) {
 } });
 var ICON_IMG = {};
 function loadIcons() {
-  var all = { s1: STOPS[1][1], s2: STOPS[2][1], s3: STOPS[3][1], s4: STOPS[4][1], s5: STOPS[5][1], s6: STOPS[6][1], s7: STOPS[7][1], s8: STOPS[8][1], s9: STOPS[9][1], check: HICONS.check, star: HICONS.star, starOpen: HICONS.starOpen, note: HICONS.note };
+  var all = { s1: STOPS[1][1], s2: STOPS[2][1], s3: STOPS[3][1], s4: STOPS[4][1], s5: STOPS[5][1], s6: STOPS[6][1], s7: STOPS[7][1], s8: STOPS[8][1], s9: STOPS[9][1], check: HICONS.check, star: HICONS.star, starOpen: HICONS.starOpen, note: HICONS.note, smiley: HICONS.smiley };
   return Promise.all(Object.keys(all).map(function (k) {
     return new Promise(function (res) {
       var im = new Image(); im.onload = im.onerror = function () { res(); };
@@ -1191,10 +1196,19 @@ L.Canvas.include({ _updateIcon: function (layer) {
   var o = layer.options.off || [0, 0], p = { x: layer._point.x + o[0], y: layer._point.y + o[1] }, ctx = this._ctx, sz = layer._radius * 2, im = layer.options.img;
   if (!im || !im.complete || !im.naturalWidth) return;
   ctx.save(); if (layer.options.dim) ctx.globalAlpha = 0.45;
-  ctx.shadowColor = 'rgba(255,255,255,0.95)'; ctx.shadowBlur = 3;
-  ctx.drawImage(im, p.x - sz / 2, p.y - sz / 2, sz, sz); ctx.shadowBlur = 0; ctx.drawImage(im, p.x - sz / 2, p.y - sz / 2, sz, sz);
+  if (!layer.options.plain) { ctx.shadowColor = 'rgba(255,255,255,0.95)'; ctx.shadowBlur = 3; ctx.drawImage(im, p.x - sz / 2, p.y - sz / 2, sz, sz); ctx.shadowBlur = 0; }
+  ctx.drawImage(im, p.x - sz / 2, p.y - sz / 2, sz, sz);
   ctx.restore();
 } });
+/* each trip gets its own color, in date order, so neighbouring trips never share one */
+var TRIP_COLORS = ['#7b2cbf', '#e4572e', '#1f6fd1', '#1b8a4b', '#c2185b', '#ef8a00', '#0097a7', '#8d5524', '#5c6bc0', '#9e9d24', '#d81b60', '#00796b', '#6d4c41', '#3949ab', '#f4511e', '#43a047'];
+var tripColors = {};
+function tripPalette(routes) {
+  var first = {}; routes.forEach(function (r) { if (!r.trip) return; var d = r.date || '9999'; if (!first[r.trip] || d < first[r.trip]) first[r.trip] = d; });
+  var out = {}; Object.keys(first).sort(function (a, b) { return first[a] < first[b] ? -1 : first[a] > first[b] ? 1 : a < b ? -1 : 1; }).forEach(function (t, i) { out[t] = TRIP_COLORS[i % TRIP_COLORS.length]; });
+  return out;
+}
+function tripColor(t) { return (t && tripColors[t]) || css('--hroute'); }
 var IconMarker = L.CircleMarker.extend({ _updatePath: function () { this._renderer._updateIcon(this); } });
 function buildMap() {
   map = L.map('map', { zoomControl: false, preferCanvas: true, minZoom: 3, maxZoom: 17, zoomSnap: 0.5, attributionControl: !IN_PREVIEW });
@@ -1231,8 +1245,9 @@ function buildMap() {
   groups.labs = L.layerGroup(D.labs.map(function (p) { var m = new Tri([p.y, p.x], { renderer: canvas, radius: 5, color: halo, weight: 1, fillColor: css('--lab'), fillOpacity: 1, interactive: false }); m._r0 = 5; allDots.push(m); return m; }));
   groups.caches = L.layerGroup(dots(D.caches.filter(function (c) { return c.cat !== 9; }), css('--cache'), 4.5)
     .concat(dots(D.caches.filter(function (c) { return c.cat === 9; }), css('--special'), 5.5)));
-  function icons(arr, key, dimFn) {
-    return arr.map(function (p) { var m = new IconMarker([p.y, p.x], { renderer: canvas, radius: 12, img: ICON_IMG[typeof key === 'function' ? key(p) : key], dim: dimFn ? dimFn(p) : false, interactive: false }); m._r0 = 12; m._icon = true; allDots.push(m); return m; });
+  function icons(arr, key, dimFn, r) {
+    r = r || 12;
+    return arr.map(function (p) { var m = new IconMarker([p.y, p.x], { renderer: canvas, radius: r, img: ICON_IMG[typeof key === 'function' ? key(p) : key], dim: dimFn ? dimFn(p) : false, interactive: false }); m._r0 = r; m._icon = true; allDots.push(m); return m; });
   }
   groups.pois = L.layerGroup(icons(D.pois, function (p) { return 's' + (STOPS[p.stop] ? p.stop : 6); }));
   groups.visits = L.layerGroup(); visitCanvas = canvas;
@@ -1240,13 +1255,17 @@ function buildMap() {
   // ---- history map
   var H = D.hist;
   var lines = function (arr, color, w, dash) { return arr.map(function (r) { var l = L.polyline(routePts(r), { renderer: canvas, color: color, weight: w, opacity: 0.9, dashArray: dash, interactive: false }); l._f = r; return l; }); };
-  groups.hroutes = L.layerGroup(lines(H.hroutes, css('--hroute'), 3.5));
-  groups.htrails = L.layerGroup(lines(H.htrails, css('--trail'), 3, '6 4'));
+  tripColors = tripPalette(H.hroutes);
+  groups.hroutes = L.layerGroup(H.hroutes.map(function (r) { var l = L.polyline(routePts(r), { renderer: canvas, color: tripColor(r.trip), weight: 3.5, opacity: 0.9, interactive: false }); l._f = r; return l; }));
   var fc = css('--fcache'), fe = css('--fcache-edge');
-  groups.hfound = L.layerGroup(H.hfound.map(function (p) { var m = L.circleMarker([p.y, p.x], { renderer: canvas, radius: 3.5, color: fe, weight: 1, fillColor: fc, fillOpacity: 1, interactive: false }); m._r0 = 3.5; allDots.push(m); return m; }));
+  var fSmile = L.layerGroup(H.hfound.map(function (p) { var m = new IconMarker([p.y, p.x], { renderer: canvas, radius: 8, img: ICON_IMG.smiley, plain: true, interactive: false }); m._r0 = 8; m._icon = true; allDots.push(m); return m; }));
+  var fDots = L.layerGroup(H.hfound.map(function (p) { var m = L.circleMarker([p.y, p.x], { renderer: canvas, radius: 3.5, color: fe, weight: 1, fillColor: fc, fillOpacity: 1, interactive: false }); m._r0 = 3.5; allDots.push(m); return m; }));
+  groups.hfound = L.layerGroup([fDots]);
+  var swapFound = function () { var near = map.getZoom() >= 7, a = near ? fSmile : fDots, b = near ? fDots : fSmile; if (groups.hfound.hasLayer(b)) groups.hfound.removeLayer(b); if (!groups.hfound.hasLayer(a)) groups.hfound.addLayer(a); };
+  map.on('zoomend', swapFound); map.whenReady(swapFound);
+  map.on('zoomend', applyLayers);
   groups.hbrew = L.layerGroup(icons(H.hbrew, 's1', function (p) { return !!p.closed; }));
-  groups.huntappd = L.layerGroup(icons(H.huntappd, function (p) { return p.visited ? 'star' : 'starOpen'; }));
-  groups.hguster = L.layerGroup(icons(H.hguster, 'note'));
+  groups.hguster = L.layerGroup(icons(H.hguster, 'note', null, 16));
   groups.hhikes = L.layerGroup(icons(H.hhikes, 's2'));
   groups.hparks = L.layerGroup(icons(H.hparks, 's4'));
   if (!IN_PREVIEW) setBasemap(store.get('basemap', 'osm'));
@@ -1370,7 +1389,7 @@ function onTap(ev) {
     }
   }
   var src = { pois: D.pois, caches: D.caches, labs: D.labs };
-  POINT_LAYERS[mode].forEach(function (k) { if (show[k]) scan(src[k] || D.hist[k], k); });
+  POINT_LAYERS[mode].forEach(function (k) { if (show[k] && zoomOk(k)) scan(src[k] || D.hist[k], k); });
   hits.sort(function (a, b) { return a.d - b.d; });
   var lp = map.latLngToLayerPoint(ev.latlng), seen = {};
   LINE_LAYERS[mode].forEach(function (key) {
@@ -1468,7 +1487,7 @@ function showLine(kind, f) {
     var same = D.hist.hroutes.filter(function (r) { return f.trip && r.trip === f.trip; }), days = {};
     same.forEach(function (r) { if (r.date) days[r.date] = 1; });
     var dl = Object.keys(days).sort();
-    h = head('Trip route', f.trip || 'Unnamed trip') + '<dl>' + row('This day', fmt(f.date)) + row('Distance', f.mi ? Math.round(f.mi).toLocaleString() + ' mi' : null) +
+    h = head('Trip route', f.trip || 'Unnamed trip') + '<div class="row" style="margin-top:6px;align-items:center;gap:8px"><i class="tripdot" style="width:28px;height:6px;border-radius:3px;background:' + tripColor(f.trip) + '"></i><span class="note" style="margin:0">This trip\u2019s color on the map</span></div><dl>' + row('This day', fmt(f.date)) + row('Distance', f.mi ? Math.round(f.mi).toLocaleString() + ' mi' : null) +
       (dl.length > 1 ? row('Trip dates', fmt(dl[0]) + ' to ' + fmt(dl[dl.length - 1])) : '') + row('Notes', f.notes) + '</dl>';
   } else {
     h = head('Trail hiked', f.name || 'Trail') + '<dl>' + row('Distance', f.mi != null ? f.mi + ' mi' : null) + row('AllTrails rating', f.rt) + row('Notes', f.notes) + '</dl>';
@@ -1486,18 +1505,16 @@ function setStatus(c, g) {
 }
 function showLayers() {
   var Hh = D.hist, n = function (a) { return a.length.toLocaleString(); };
-  var visited = Hh.huntappd.filter(function (b) { return b.visited; }).length, closed = Hh.hbrew.filter(function (b) { return b.closed; }).length;
+  var closed = Hh.hbrew.filter(function (b) { return b.closed; }).length;
   var trips = {}; Hh.hroutes.forEach(function (r) { if (r.trip) trips[r.trip] = 1; });
   var items = [
     ['counties', 'Counties', 'Found, Not Found and Hidden · both maps', '<span class="bx"></span>'],
     ['names', 'County names', 'Shown when zoomed in', '']
   ];
   if (mode === 'hist') items = items.concat([
-    ['hroutes', 'Trip routes', Object.keys(trips).length + ' trips', '<span class="hl"></span>'],
-    ['htrails', 'Trails hiked', n(Hh.htrails) + ' trails', '<span class="tl"></span>'],
-    ['hfound', 'Geocaches found', n(Hh.hfound), '<span class="pt" style="background:var(--fcache);border-color:var(--fcache-edge)"></span>'],
-    ['hbrew', 'Breweries visited', n(Hh.hbrew) + (closed ? ' · ' + closed + ' now closed, shown faded' : ''), STOPS[1][1]],
-    ['huntappd', 'Untappd top breweries', visited + ' of ' + n(Hh.huntappd) + ' visited · filled star = visited', HICONS.star],
+    ['hroutes', 'Trip routes', Object.keys(trips).length + ' trips, each its own color', '<span class="hl multi"></span>'],
+    ['hfound', 'Geocaches found', n(Hh.hfound) + ' \u00b7 appear at state level as dots, smileys closer in', HICONS.smiley],
+    ['hbrew', 'Breweries visited', n(Hh.hbrew) + (closed ? ' · ' + closed + ' now closed, shown faded' : '') + ' \u00b7 appear at state level', STOPS[1][1]],
     ['hguster', 'Guster shows', n(Hh.hguster) + ' venues', HICONS.note],
     ['hhikes', 'Hikes completed', n(Hh.hhikes), STOPS[2][1]],
     ['hparks', 'Parks, gardens and viewpoints', n(Hh.hparks), STOPS[4][1]]
@@ -2164,7 +2181,6 @@ function showStats() {
     '<div><span>Caches found</span><b>' + Hh.hfound.length.toLocaleString() + '</b></div>' +
     '<div><span>Trips</span><b>' + tl.length + '</b></div>' +
     '<div><span>Breweries</span><b>' + Hh.hbrew.length.toLocaleString() + '</b></div>' +
-    '<div><span>Untappd top</span><b>' + Hh.huntappd.filter(function (b) { return b.visited; }).length + ' of ' + Hh.huntappd.length + '</b></div>' +
     '<div><span>Hikes</span><b>' + Hh.hhikes.length + '</b></div>' +
     '<div><span>Guster shows</span><b>' + Hh.hguster.length + '</b></div></div>';
   var rows = Object.keys(by).map(function (k) { return by[k]; });
@@ -2179,7 +2195,7 @@ function showStats() {
       '<td class="n">' + (r.f === r.n ? '<b style="color:var(--found)">Done</b> ' : '') + r.f + ' / ' + r.n + '</td><td class="bar2"><div class="b"><i style="width:' + p.toFixed(1) + '%"></i></div></td><td class="n">' + Math.round(p) + '%</td></tr>';
   }).join('') + '</tbody></table><p class="note">Tap a state or province to zoom to it.</p>';
   if (tl.length) h += '<h3 class="sub">Trips</h3><table class="stab"><tbody>' + tl.map(function (t) {
-    return '<tr><td><b>' + esc(t.name) + '</b><br><small style="color:var(--muted)">' + fmt(t.a) + (t.b !== t.a ? ' – ' + fmt(t.b) : '') + ' · ' + Object.keys(t.days).length + ' days</small></td><td class="n">' + Math.round(t.mi).toLocaleString() + ' mi<br><small style="color:var(--muted)">' + t.finds + ' caches</small></td></tr>';
+    return '<tr><td><b><i class="tripdot" style="background:' + tripColor(t.name) + '"></i>' + esc(t.name) + '</b><br><small style="color:var(--muted)">' + fmt(t.a) + (t.b !== t.a ? ' – ' + fmt(t.b) : '') + ' · ' + Object.keys(t.days).length + ' days</small></td><td class="n">' + Math.round(t.mi).toLocaleString() + ' mi<br><small style="color:var(--muted)">' + t.finds + ' caches</small></td></tr>';
   }).join('') + '</tbody></table><p class="note">Miles are measured along the saved routes. Caches are counted by find date between the first and last day of each trip’s routes.</p>';
   var ys = Object.keys(years).sort().reverse();
   if (ys.length) h += '<h3 class="sub">Caches found by year</h3><table class="ctab"><tbody>' + ys.map(function (y) { return '<tr><td>' + y + '</td><td>' + years[y].toLocaleString() + '</td></tr>'; }).join('') + '</tbody></table>';
