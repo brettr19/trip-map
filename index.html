@@ -844,6 +844,12 @@ body.drag-stop, body.drag-stop * { -webkit-user-select: none !important; user-se
 .seg2 button { border: 0; background: none; border-radius: 8px; min-height: 32px; padding: 0 10px; font-weight: 600; color: var(--muted); }
 .seg2 button[aria-pressed="true"] { background: var(--panel); color: var(--fg); box-shadow: 0 1px 2px rgba(0,0,0,.15); }
 .bkup dl { margin-top: 0; }
+.imp .kicker { margin-top: 12px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; border: 2px solid var(--line); border-radius: 18px; padding: 4px 10px 4px 8px; font-size: 14px; color: var(--fg); }
+.chip small { color: var(--muted); font-variant-numeric: tabular-nums; }
+.chip input { width: 18px; height: 18px; accent-color: var(--accent); margin: 0; }
+.imp select { font: inherit; font-size: 16px; color: var(--fg); background: var(--panel); border: 2px solid var(--line); border-radius: 10px; min-height: 44px; padding: 0 6px; }
 .form label.check { align-items: flex-start; }
 .form label.check input { flex: none; margin: 1px 0 0; }
 
@@ -983,6 +989,7 @@ textarea { width: 100%; min-height: 120px; margin-top: 12px; font: 12px/1.4 var(
   <section class="itin" id="itin" hidden aria-label="Itinerary"></section>
   <section class="sheet" id="sheet" aria-live="polite"></section>
   <input type="file" id="filePick" hidden aria-label="Data file">
+  <input type="file" id="planPick" hidden aria-label="Caches or lab stops file">
   <div class="toast" id="toast" hidden></div>
   <div class="loading" id="loading"><p id="loadingMsg">Loading counties, caches and route…</p></div>
 </div>
@@ -1303,6 +1310,11 @@ function markVisited(f) {
   saveVisits(); toast((f.name || 'Stop') + ' marked visited');
 }
 function removeVisit(id) { visits = visits.filter(function (v) { return String(v.id) !== String(id); }); saveVisits(); }
+function fixCacheStops(I) {
+  var fx = function (p) { if (!p) return; if (p.kind === 'cache') { p.kind = 'caches'; if (p.stop === 6) p.stop = 8; } else if (p.kind === 'lab') { p.kind = 'labs'; if (p.stop === 6) p.stop = 9; }
+    else if (p.kind === 'caches' && p.stop === 6) p.stop = 8; else if (p.kind === 'labs' && p.stop === 6) p.stop = 9; };
+  ((I && I.days) || []).forEach(function (d) { fx(d.start); fx(d.end); (d.stops || []).forEach(fx); });
+}
 function stopType(p) { return p.kind === 'caches' && p.stop === 6 ? 8 : p.kind === 'labs' && p.stop === 6 ? 9 : p.stop; }   // older plans stored caches as 6
 function stopVisits(p) { return visits.filter(function (v) { return (v.sid != null && String(v.sid) === String(p.id)) || (v.pk && p.kind === 'pois' && v.pk === poiKey(p)); }); }
 function stopDone(p) { return isCacheStop(p) ? !!p.done : stopVisits(p).length > 0; }
@@ -1523,7 +1535,7 @@ function showLayers() {
     ['itin', 'Itinerary routes', D.itin.days.length + ' days · solid = drive times, dotted = estimate', '<span class="ln" style="background:var(--itin)"></span>'],
     ['route', 'Planned route (from Pro)', D.route.length + ' segments', '<span class="ln"></span>'],
     ['caches', 'Planned geocaches', D.caches.length.toLocaleString() + ' · blue county, red special', '<span class="pt" style="background:var(--cache)"></span>'],
-    ['labs', 'Lab caches', D.labs.length.toLocaleString() + ' stops', '<span class="tri"></span>'],
+    ['labs', 'Lab stops', D.labs.length.toLocaleString() + ' stops', '<span class="tri"></span>'],
     ['pois', 'Points of interest', D.pois.length.toLocaleString() + ' in this data', STOPS[3][1]],
     ['visits', 'Visited on this phone', visits.length + ' places · press and hold the map to add one', HICONS.check]
   ]);
@@ -1539,6 +1551,11 @@ function showLayers() {
     BASEMAPS.forEach(function (b) { h += '<li><label for="base-' + b.id + '"><input type="radio" name="base" id="base-' + b.id + '" data-base="' + b.id + '"' + (b.id === baseId ? ' checked' : '') + '><span>' + esc(b.name) + (b.note ? ' <small>· ' + esc(b.note) + '</small>' : '') + '</span></label></li>'; });
     h += '</ul><p class="note">Basemaps need a signal. Areas you have already looked at stay available without one.</p>';
   }
+  if (!IN_PREVIEW && mode === 'plan') h += '<h3 class="sub">Planning data</h3><dl class="bkup">' + row('Planned geocaches', D.caches.length.toLocaleString()) + row('Lab stops', D.labs.length.toLocaleString()) + '</dl>' +
+    '<div class="row"><button class="btn primary" type="button" data-act="planpick">Add caches or lab stops</button></div>' +
+    '<p class="note">An iCaching bookmark list CSV, a Pocket Query GPX, or a Lab2Gpx GPX. You choose which caches to keep before they are added.</p>' +
+    '<div class="row tight"><button class="btn" type="button" data-act="clearcaches"' + (D.caches.length ? '' : ' disabled') + '>Clear planned caches</button><button class="btn" type="button" data-act="clearlabs"' + (D.labs.length ? '' : ' disabled') + '>Clear lab stops</button></div>' +
+    '<h3 class="sub">Map data from Pro</h3>';
   if (!IN_PREVIEW) h += '<div class="row"><button class="btn" type="button" data-act="pick">Load a data file</button></div><p class="note">' + (D.built ? 'Trip data from ' + esc(D.built) + '. ' : '') + 'Loading a file replaces only the layers that file contains. County changes made on this phone are kept.</p>' +
     '<div class="row"><button class="btn" type="button" data-act="backupsheet">Back up or restore</button></div>';
   openSheet(h);
@@ -1643,6 +1660,7 @@ function refreshChrome() {
 function wire() {
   sheet = $('sheet');
   sheet.addEventListener('change', function (ev) {
+    if (ev.target.closest && ev.target.closest('#impForm')) { impCount(); return; }
     if (ev.target.id !== 'bType') return;
     var T = BOOK_TYPES[ev.target.value] || BOOK_TYPES.other, ls = sheet.querySelectorAll('.form label');
     if (ls[2]) ls[2].firstChild.nodeValue = T.from + ' '; if (ls[3]) ls[3].firstChild.nodeValue = T.to + ' ';
@@ -1690,6 +1708,11 @@ function wire() {
     else if (act === 'saveall') saveCsv(true);
     else if (act === 'pick') $('filePick').click();
     else if (act === 'backupsheet') showBackup();
+    else if (act === 'planpick') $('planPick').click();
+    else if (act === 'impgo') applyCacheImport();
+    else if (act === 'labgo') applyLabImport();
+    else if (act === 'clearcaches') clearPlan('caches', b);
+    else if (act === 'clearlabs') clearPlan('labs', b);
     else if (act === 'stats') showStats();
     else if (act === 'nflist') showNotFound();
     else if (act === 'statsort') { statSort = b.getAttribute('data-v'); store.set('statSort', statSort); var st = sheet.scrollTop; showStats(); sheet.scrollTop = st; }
@@ -1868,8 +1891,162 @@ function importFile(file) {
     toast(err instanceof SyntaxError ? 'That file is not valid JSON or GeoJSON.' : (err && err.message) || 'The file could not be loaded.');
   });
 }
+/* ---------- planning data straight into the app: caches (iCaching CSV, Pocket Query GPX) and lab stops (Lab2Gpx GPX) ---------- */
+function parseCSV(text) {
+  var rows = [], row = [], f = '', q = false, i = 0, c, n = text.length;
+  if (text.charCodeAt(0) === 0xfeff) i = 1;
+  for (; i < n; i++) {
+    c = text[i];
+    if (q) { if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === ',') { row.push(f); f = ''; }
+    else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(f); rows.push(row); row = []; f = ''; }
+    else f += c;
+  }
+  if (f !== '' || row.length) { row.push(f); rows.push(row); }
+  if (!rows.length) return [];
+  var head = rows[0].map(function (h) { return h.trim(); });
+  return rows.slice(1).filter(function (r) { return r.length > 1; }).map(function (r) { var o = {}; head.forEach(function (h, k) { o[h] = r[k] != null ? r[k].trim() : ''; }); return o; });
+}
+function numOr(v) { v = parseFloat(v); return isFinite(v) ? v : null; }
+function cachesFromCSV(rows) {
+  return rows.map(function (r) {
+    var lat = numOr(r.latitude), lon = numOr(r.longitude); if (!r.code || lat == null || lon == null) return null;
+    return { code: r.code, name: r.name || r.code, lat: lat, lon: lon, clat: numOr(r.correctedLatitude), clon: numOr(r.correctedLongitude), type: r.type || 'Unknown', d: numOr(r.difficulty), t: numOr(r.terrain),
+      size: r.container || 'Not chosen', owner: r.owner || null, fav: numOr(r.favoritePoints), hint: r.encodedHints || null, url: r.url || ('https://coord.info/' + r.code), note: r.myNote || null, st: r.state || null,
+      avail: r.available === '0' ? 0 : 1, arch: r.archived === '1' ? 1 : 0, found: !!r.myFoundDate || /^f/i.test(r.findStatusAbbreviation || '') };
+  }).filter(Boolean);
+}
+function readGPX(text) {
+  var doc = new DOMParser().parseFromString(text, 'application/xml');
+  if (doc.getElementsByTagName('parsererror').length) throw new Error('That GPX file could not be read.');
+  var kid = function (el, name) { if (!el) return null; for (var c = el.firstElementChild; c; c = c.nextElementSibling) if (c.localName === name) return (c.textContent || '').trim(); return null; };
+  var caches = [], labs = [], wpts = doc.getElementsByTagNameNS('*', 'wpt'), anyGs = false, list = [];
+  for (var i = 0; i < wpts.length; i++) {
+    var w = wpts[i], gs = w.getElementsByTagNameNS('*', 'cache')[0] || null; if (gs) anyGs = true;
+    list.push({ w: w, gs: gs });
+  }
+  list.forEach(function (o) {
+    var w = o.w, gs = o.gs, lat = numOr(w.getAttribute('lat')), lon = numOr(w.getAttribute('lon')); if (lat == null || lon == null) return;
+    var name = kid(w, 'name') || '', gtype = gs ? kid(gs, 'type') || '' : '', wtype = kid(w, 'type') || '';
+    var isLab = /lab/i.test(gtype) || /lab/i.test(wtype) || (!anyGs) || (!gs && /^LC/i.test(name));
+    if (isLab) { labs.push({ name: name || kid(w, 'desc') || 'Lab stop', desc: kid(w, 'desc') || '', note: kid(w, 'cmt') || '', lat: lat, lon: lon }); return; }
+    if (!gs) return;                                                              // additional waypoints (parking, stages) are skipped
+    caches.push({ code: name, name: kid(gs, 'name') || kid(w, 'urlname') || name, lat: lat, lon: lon, clat: null, clon: null, type: gtype || 'Unknown',
+      d: numOr(kid(gs, 'difficulty')), t: numOr(kid(gs, 'terrain')), size: kid(gs, 'container') || 'Not chosen', owner: kid(gs, 'placed_by') || kid(gs, 'owner'), fav: numOr(kid(gs, 'favorite_points')),
+      hint: kid(gs, 'encoded_hints'), url: kid(w, 'url') || ('https://coord.info/' + name), note: null, st: kid(gs, 'state'),
+      avail: /false/i.test(gs.getAttribute('available') || 'True') ? 0 : 1, arch: /true/i.test(gs.getAttribute('archived') || 'False') ? 1 : 0, found: /found/i.test(kid(w, 'sym') || '') && !/not found/i.test(kid(w, 'sym') || '') });
+  });
+  return { caches: caches, labs: labs };
+}
+function importPlanFile(file) {
+  if (!file) return;
+  if (file.size > 60 * 1024 * 1024) { toast('That file is too large for a phone (over 60 MB).'); return; }
+  toast('Reading ' + file.name + '\u2026');
+  file.text().then(function (txt) {
+    var got;
+    if (/^\s*</.test(txt)) got = readGPX(txt);
+    else {
+      var rows = parseCSV(txt);
+      if (!rows.length || !('code' in rows[0]) || !('latitude' in rows[0])) throw new Error('This CSV is not an iCaching export (it needs code, latitude and longitude columns).');
+      got = { caches: cachesFromCSV(rows), labs: [] };
+    }
+    if (!got.caches.length && !got.labs.length) throw new Error('No geocaches or lab stops were found in that file.');
+    if (got.caches.length) showCacheImport(got, file.name); else showLabImport(got.labs, file.name);
+  }).catch(function (err) { toast((err && err.message) || 'The file could not be read.'); });
+}
+var IMP_DM = [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
+function impFilter(o, all) {
+  return all.filter(function (c) {
+    if (o.types && !o.types[c.type]) return false;
+    if (o.sizes && !o.sizes[c.size]) return false;
+    if (c.d != null && c.d > o.maxD) return false;
+    if (c.t != null && c.t > o.maxT) return false;
+    if (o.minFav && (c.fav || 0) < o.minFav) return false;
+    if (o.skipFound && c.found) return false;
+    if (o.skipArch && c.arch) return false;
+    if (o.skipDis && !c.avail) return false;
+    return true;
+  });
+}
+function impOpts() {
+  var o = { types: {}, sizes: {}, maxD: +$('impD').value, maxT: +$('impT').value, minFav: +($('impFav').value || 0), skipFound: $('impFound').checked, skipArch: $('impArch').checked,
+    skipDis: $('impDis').checked, corrected: $('impCorr').checked, special: $('impSpecial').checked, replace: $('impReplace').checked, labsToo: $('impLabs') ? $('impLabs').checked : false };
+  sheet.querySelectorAll('[data-imptype]').forEach(function (x) { if (x.checked) o.types[x.getAttribute('data-imptype')] = 1; });
+  sheet.querySelectorAll('[data-impsize]').forEach(function (x) { if (x.checked) o.sizes[x.getAttribute('data-impsize')] = 1; });
+  return o;
+}
+function impCount() {
+  var imp = sheet._imp; if (!imp) return;
+  var o = impOpts(), list = impFilter(o, imp.all), have = {}, upd = 0;
+  if (!o.replace) D.caches.forEach(function (c) { if (c.code) have[c.code] = 1; });
+  list.forEach(function (c) { if (have[c.code]) upd++; });
+  $('impGo').textContent = list.length ? (o.replace ? 'Replace with ' : 'Add ') + list.length.toLocaleString() + (list.length === 1 ? ' cache' : ' caches') : 'Nothing matches';
+  $('impGo').disabled = !list.length;
+  $('impNote').textContent = (upd ? upd.toLocaleString() + ' already loaded will be updated. ' : '') + (o.replace ? 'The ' + D.caches.length.toLocaleString() + ' planned caches on this device are replaced.' : 'Added to the ' + D.caches.length.toLocaleString() + ' planned caches on this device.');
+}
+function showCacheImport(got, fname) {
+  var all = got.caches, tc = {}, sc = {}, nf = 0, na = 0, nd = 0, nc = 0;
+  all.forEach(function (c) { tc[c.type] = (tc[c.type] || 0) + 1; sc[c.size] = (sc[c.size] || 0) + 1; if (c.found) nf++; if (c.arch) na++; if (!c.avail) nd++; if (c.clat != null) nc++; });
+  var chips = function (cnt, attr) { return Object.keys(cnt).sort(function (a, b) { return cnt[b] - cnt[a]; }).map(function (k) { return '<label class="chip"><input type="checkbox" ' + attr + '="' + esc(k) + '" checked> ' + esc(k) + ' <small>' + cnt[k].toLocaleString() + '</small></label>'; }).join(''); };
+  var dm = function (id, v) { return '<select id="' + id + '">' + IMP_DM.map(function (x) { return '<option value="' + x + '"' + (x === v ? ' selected' : '') + '>' + x + '</option>'; }).join('') + '</select>'; };
+  var h = head(fname, all.length.toLocaleString() + (all.length === 1 ? ' geocache' : ' geocaches')) +
+    '<p class="note">' + [nf ? nf.toLocaleString() + ' found by you' : '', na ? na.toLocaleString() + ' archived' : '', nd ? nd.toLocaleString() + ' disabled' : '', nc ? nc.toLocaleString() + ' with corrected coordinates' : ''].filter(Boolean).join(' \u00b7 ') + '</p>' +
+    '<div class="imp" id="impForm"><div class="kicker">Types</div><div class="chips">' + chips(tc, 'data-imptype') + '</div>' +
+    '<div class="kicker">Sizes</div><div class="chips">' + chips(sc, 'data-impsize') + '</div>' +
+    '<div class="dayrow"><label>Difficulty up to ' + dm('impD', 5) + '</label><label>Terrain up to ' + dm('impT', 5) + '</label><label>Favorites at least <input id="impFav" type="number" min="0" step="1" inputmode="numeric" value="0"></label></div>' +
+    '<div class="form" style="margin-top:10px">' +
+    '<label class="check"><input id="impFound" type="checkbox" checked> Skip caches I\u2019ve found</label>' +
+    '<label class="check"><input id="impArch" type="checkbox" checked> Skip archived caches</label>' +
+    '<label class="check"><input id="impDis" type="checkbox" checked> Skip disabled caches</label>' +
+    '<label class="check"><input id="impCorr" type="checkbox" checked> Use corrected coordinates when there are some</label>' +
+    '<label class="check"><input id="impSpecial" type="checkbox"> Mark these as special caches (red on the map)</label>' +
+    '<label class="check"><input id="impReplace" type="checkbox"> Replace the planned caches on this device instead of adding</label>' +
+    (got.labs.length ? '<label class="check"><input id="impLabs" type="checkbox" checked> Also add the ' + got.labs.length + ' lab stops in this file</label>' : '') +
+    '</div></div><p class="note" id="impNote"></p><div class="row"><button class="btn primary" type="button" id="impGo" data-act="impgo">Add</button><button class="btn" type="button" data-act="close">Cancel</button></div>';
+  sheet._imp = { all: all, labs: got.labs }; sheet._point = null; openSheet(h); impCount();
+}
+function cacheRecord(c, o) {
+  var useC = o.corrected && c.clat != null && c.clon != null;
+  return { x: +(useC ? c.clon : c.lon).toFixed(5), y: +(useC ? c.clat : c.lat).toFixed(5), code: c.code, name: c.name, type: c.type, d: c.d, t: c.t, size: c.size, owner: c.owner, fav: c.fav,
+    hint: c.hint, url: c.url, note: c.note, st: c.st, avail: c.avail, cat: o.special ? 9 : null, src: 'app' };
+}
+function applyCacheImport() {
+  var imp = sheet._imp; if (!imp) return;
+  var o = impOpts(), list = impFilter(o, imp.all).map(function (c) { return cacheRecord(c, o); });
+  var byCode = {}, out = o.replace ? [] : D.caches.slice();
+  out.forEach(function (c, k) { if (c.code) byCode[c.code] = k; });
+  list.forEach(function (c) { if (byCode[c.code] != null) out[byCode[c.code]] = c; else { byCode[c.code] = out.length; out.push(c); } });
+  var put = { caches: out }, msg = 'Planned caches: ' + out.length.toLocaleString() + ' (' + list.length.toLocaleString() + ' from the file)';
+  if (o.labsToo && imp.labs.length) { var L2 = mergeLabs(imp.labs, false); put.labs = L2.list; msg += ' \u00b7 lab stops: ' + L2.list.length.toLocaleString(); }
+  idbPut(put).then(function () { store.set('flash', msg); location.reload(); }, function () { toast('The caches could not be saved on this device.'); });
+}
+function mergeLabs(labs, replace) {
+  var key = function (p) { return (p.name || '') + '|' + (+p.x).toFixed(5) + '|' + (+p.y).toFixed(5); };
+  var out = replace ? [] : D.labs.slice(), seen = {}, added = 0;
+  out.forEach(function (p) { seen[key(p)] = 1; });
+  labs.forEach(function (l) { var p = { x: +l.lon.toFixed(5), y: +l.lat.toFixed(5), name: l.name, desc: l.desc, note: l.note }; if (!seen[key(p)]) { seen[key(p)] = 1; out.push(p); added++; } });
+  return { list: out, added: added };
+}
+function showLabImport(labs, fname) {
+  var h = head(fname, labs.length.toLocaleString() + (labs.length === 1 ? ' lab stop' : ' lab stops')) +
+    '<p class="note">Lab stops show on the Planning map as triangles. Tap one to add it to the itinerary as a Lab Stop.</p>' +
+    '<div class="form"><label class="check"><input id="labReplace" type="checkbox"> Replace the ' + D.labs.length.toLocaleString() + ' lab stops on this device instead of adding</label></div>' +
+    '<div class="row"><button class="btn primary" type="button" data-act="labgo">Add lab stops</button><button class="btn" type="button" data-act="close">Cancel</button></div>';
+  sheet._labs = labs; sheet._point = null; openSheet(h);
+}
+function applyLabImport() {
+  var labs = sheet._labs; if (!labs) return;
+  var r = mergeLabs(labs, $('labReplace').checked);
+  idbPut({ labs: r.list }).then(function () { store.set('flash', 'Lab stops: ' + r.list.length.toLocaleString() + ' (' + r.added.toLocaleString() + ' new)'); location.reload(); }, function () { toast('The lab stops could not be saved on this device.'); });
+}
+function clearPlan(which, b) {
+  if (b.getAttribute('data-sure') !== '1') { b.setAttribute('data-sure', '1'); b.textContent = 'Tap again to clear'; return; }
+  var put = {}; put[which] = [];
+  idbPut(put).then(function () { store.set('flash', which === 'caches' ? 'Planned caches cleared' : 'Lab stops cleared'); location.reload(); });
+}
 function showWelcome() {
-  openSheet(head('Geocations', 'Load your trip data') + '<p class="note">This phone has no map data yet. Choose the trip data file you saved to Files or iCloud Drive. It stays on this phone and is never uploaded.</p><div class="row"><button class="btn primary" type="button" data-act="pick">Choose data file</button></div>');
+  openSheet(head('Geocations', 'Load your trip data') + '<p class="note">This phone has no map data yet. Choose the trip data file you saved to Files or iCloud Drive. It stays on this phone and is never uploaded. Planned caches and lab stops are added afterwards, under Layers.</p><div class="row"><button class="btn primary" type="button" data-act="pick">Choose data file</button></div>');
 }
 
 /* ---------- itinerary ---------- */
@@ -2223,7 +2400,7 @@ function backupCounts(b) {
 }
 function backupText(withKey) {
   var I = JSON.parse(JSON.stringify(D.itin)); (I.days || []).forEach(function (d) { delete d._rt; });
-  var b = { geocations: 'backup', version: 1, saved: new Date().toISOString(), itinerary: I, edits: edits, visits: visits,
+  var b = { geocations: 'backup', version: 2, saved: new Date().toISOString(), itinerary: I, edits: edits, visits: visits, caches: D.caches, labs: D.labs,
     settings: { show: show, mode: mode, basemap: store.get('basemap', null), itinView: itinView, navApp: navApp() } };
   if (withKey && orsKey()) b.settings.orsKey = orsKey();
   return JSON.stringify(b);
@@ -2237,9 +2414,9 @@ function ago(iso) {
 function showBackup() {
   var n = backupCounts({ itinerary: D.itin, edits: edits, visits: visits }), last = store.get('lastBackup', null);
   var h = head('This phone', 'Back up or restore') +
-    '<p class="note">A backup is one file with everything you have entered on this phone: the itinerary, bookings, expenses, county changes, visits and settings. Save it to your shared folder. The map layers are not in it; they come from your trip data file.</p>' +
+    '<p class="note">A backup is one file with everything you have entered on this phone: the itinerary, bookings, expenses, planned caches and lab stops, county changes, visits and settings. Save it to your shared folder. The history layers and counties are not in it; they come from your trip data file.</p>' +
     '<div class="bkup"><dl>' + row('Itinerary', pl(n.days, 'day') + ', ' + pl(n.stops, 'stop')) +
-    row('Bookings and expenses', pl(n.books, 'booking') + ', ' + pl(n.exps, 'expense')) + row('County changes', n.edits) + row('Visits', n.visits) + row('Last backup', ago(last)) + '</dl></div>' +
+    row('Bookings and expenses', pl(n.books, 'booking') + ', ' + pl(n.exps, 'expense')) + row('Planned caches and lab stops', D.caches.length.toLocaleString() + ' caches, ' + D.labs.length.toLocaleString() + ' lab stops') + row('County changes', n.edits) + row('Visits', n.visits) + row('Last backup', ago(last)) + '</dl></div>' +
     '<div class="form" style="margin-top:12px"><label class="check"><input id="bkKey" type="checkbox"' + (orsKey() ? '' : ' disabled') + '> Include my OpenRouteService key</label></div>' +
     '<p class="note">Include the key when the backup is for setting up another phone. Leave it out for a file you share with others.</p>' +
     '<div class="row"><button class="btn primary" type="button" data-act="backup">Back up now</button>' + (IN_PREVIEW ? '' : '<button class="btn" type="button" data-act="pick">Restore from a backup</button>') + '</div>';
@@ -2264,6 +2441,7 @@ function showRestore(b) {
       (here.stops ? 'Replaces the ' + pl(here.days, 'day') + ' plan on this phone. ' : 'This phone has no plan yet. ') + 'Bookings and expenses on this phone that are not in the backup are kept.') +
     chk('rsEdits', n.edits, 'County changes · ' + n.edits, 'Added to this phone. Where both have the same county, the newer change wins.') +
     chk('rsVisits', n.visits, 'Visits · ' + n.visits, 'Added to this phone; visits already here are kept.') +
+    (b.caches || b.labs ? chk('rsPlan', (b.caches || []).length || (b.labs || []).length, 'Planned caches and lab stops \u00b7 ' + (b.caches || []).length.toLocaleString() + ' caches, ' + (b.labs || []).length.toLocaleString() + ' lab stops', 'Replaces the ' + D.caches.length.toLocaleString() + ' caches and ' + D.labs.length.toLocaleString() + ' lab stops on this phone.') : '') +
     chk('rsSet', true, 'Settings' + (S.orsKey ? ' and the OpenRouteService key' : ''), 'Layers shown, basemap and where directions open.') +
     '</div><div class="row"><button class="btn primary" type="button" data-act="restoreok">Restore</button><button class="btn" type="button" data-act="close">Cancel</button></div>';
   sheet._restore = b; sheet._point = null; openSheet(h);
@@ -2285,6 +2463,7 @@ function applyRestore() {
     b.visits.forEach(function (v) { if (!have[String(v.id)]) { visits.push(v); nv++; } });
     store.set('visits', visits); did.push(nv + (nv === 1 ? ' visit' : ' visits'));
   }
+  if (on('rsPlan') && (b.caches || b.labs)) { if (b.caches) put.caches = b.caches; if (b.labs) put.labs = b.labs; did.push('planned caches and lab stops'); }
   if (on('rsSet') && b.settings) {
     var S = b.settings;
     if (S.show) store.set('show', S.show); if (S.mode) store.set('mode', S.mode); if (S.basemap) store.set('basemap', S.basemap);
@@ -2293,7 +2472,7 @@ function applyRestore() {
   }
   if (!did.length) { toast('Nothing was chosen to restore'); return; }
   var fin = function () { store.set('flash', 'Restored ' + did.join(', ')); location.reload(); };
-  if (put.itinerary) idbPut(put).then(fin, function () { toast('The itinerary could not be saved on this device.'); }); else fin();
+  if (Object.keys(put).length) idbPut(put).then(fin, function () { toast('The itinerary could not be saved on this device.'); }); else fin();
 }
 function estLegs(w) {
   var legs = [], line = [];
@@ -2429,6 +2608,7 @@ function placeOf(kind, f) {
   return { name: f.name || f.code || 'Stop', x: f.x, y: f.y, stop: stop, kind: kind, code: f.code || null, url: f.url || null, addr: f.addr || null };
 }
 function addToItin(kind, f, where) {
+  if (kind === 'cache') kind = 'caches'; else if (kind === 'lab') kind = 'labs';
   if (!D.itin.days.length) addDay();
   var day = D.itin.days[curDay], p = placeOf(kind, f);
   if (where === 'start') day.start = p;
@@ -2898,6 +3078,7 @@ function start2(data) {
   D = { counties: data.counties || [], caches: data.caches || [], labs: data.labs || [], pois: data.pois || [], route: data.route || [], built: data.built || '', hist: {} };
   HKEYS.forEach(function (k) { D.hist[k] = data[k] || []; });
   D.itin = data.itinerary && data.itinerary.days ? data.itinerary : { name: '', days: [] };
+  fixCacheStops(D.itin);
   curDay = Math.min(store.get('curDay', 0), Math.max(0, D.itin.days.length - 1));
   var st = data.status || null;
   D.counties.forEach(function (c) { prepCounty(c); if (st && st[c.id] != null) c.g = +st[c.id]; });
@@ -2909,6 +3090,7 @@ function start2(data) {
 function boot() {
   wire();
   $('filePick').addEventListener('change', function (ev) { var f = ev.target.files && ev.target.files[0]; ev.target.value = ''; importFile(f); });
+  $('planPick').addEventListener('change', function (ev) { var f = ev.target.files && ev.target.files[0]; ev.target.value = ''; importPlanFile(f); });
   if (!window.L) { $('loadingMsg').textContent = 'The map library did not load. Check your connection and reload.'; return; }
   if (IN_PREVIEW) {
     fetch('tripdata.json').then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); }).then(start)

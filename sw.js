@@ -1,5 +1,5 @@
 /* Trip Planning Map: keeps the app and the map tiles you have viewed available without a signal. */
-const SHELL = 'tpm-shell-v151', TILES = 'tpm-tiles-v1', MAX_TILES = 6000;
+const SHELL = 'tpm-shell-v16', TILES = 'tpm-tiles-v1', MAX_TILES = 6000;
 const FILES = ['./', 'index.html', 'leaflet.js', 'manifest.webmanifest', 'icon-192.png'];
 const TILE_HOSTS = ['tile.openstreetmap.org', 'server.arcgisonline.com', 'basemap.nationalmap.gov', 'basemaps.cartocdn.com'];
 const isTile = h => TILE_HOSTS.some(t => h === t || h.endsWith('.' + t));
