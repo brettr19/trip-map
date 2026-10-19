@@ -10,6 +10,7 @@
   --line: #cfd7cc;
   --accent: #b3009e;        /* route magenta, used for the primary action */
   --accent-fg: #ffffff;
+  --brewdot: #c98a1b;
   --found: #5aa83a;
   --found-fill: rgba(130, 205, 90, 0.46);
   --notfound: #e06464;
@@ -38,7 +39,7 @@
   :root:not([data-theme="light"]) {
     --bg: #171c19; --panel: #222925; --panel-2: #2b332e; --fg: #e8eee9; --muted: #9eaaa2; --line: #3a443e;
     --accent: #e052d0; --accent-fg: #1a0f19;
-    --found: #8fcf5c; --found-fill: rgba(130, 205, 90, 0.38); --notfound: #f08a90; --notfound-fill: rgba(242, 112, 112, 0.38); --route: #ff3fd6; --itin: #5aa7ff; --itin-other: #3d6797; --itin-slow: #3fd1a8; --warn: #ff8a80; --hroute: #b580ff; --trail: #d9a35c; --fcache: #ffd24d; --fcache-edge: #2a2000;
+    --found: #8fcf5c; --found-fill: rgba(130, 205, 90, 0.38); --notfound: #f08a90; --notfound-fill: rgba(242, 112, 112, 0.38); --route: #ff3fd6; --itin: #5aa7ff; --itin-other: #3d6797; --itin-slow: #3fd1a8; --warn: #ff8a80; --hroute: #b580ff; --trail: #d9a35c; --fcache: #ffd24d; --fcache-edge: #2a2000; --brewdot: #e0a43a;
     --county-line: #66706a; --county-edit: #f2f5f2; --label: #c9d3cc; --label-halo: rgba(23, 28, 25, 0.85);
     --cache: #6fa0ff; --special: #ff6b6b; --lab: #6fd34f; --shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
     color-scheme: dark;
@@ -47,7 +48,7 @@
 :root[data-theme="dark"] {
   --bg: #171c19; --panel: #222925; --panel-2: #2b332e; --fg: #e8eee9; --muted: #9eaaa2; --line: #3a443e;
   --accent: #e052d0; --accent-fg: #1a0f19;
-  --found: #8fcf5c; --found-fill: rgba(130, 205, 90, 0.38); --notfound: #f08a90; --notfound-fill: rgba(242, 112, 112, 0.38); --route: #ff3fd6; --itin: #5aa7ff; --itin-other: #3d6797; --itin-slow: #3fd1a8; --warn: #ff8a80; --hroute: #b580ff; --trail: #d9a35c; --fcache: #ffd24d; --fcache-edge: #2a2000;
+  --found: #8fcf5c; --found-fill: rgba(130, 205, 90, 0.38); --notfound: #f08a90; --notfound-fill: rgba(242, 112, 112, 0.38); --route: #ff3fd6; --itin: #5aa7ff; --itin-other: #3d6797; --itin-slow: #3fd1a8; --warn: #ff8a80; --hroute: #b580ff; --trail: #d9a35c; --fcache: #ffd24d; --fcache-edge: #2a2000; --brewdot: #e0a43a;
   --county-line: #66706a; --county-edit: #f2f5f2; --label: #c9d3cc; --label-halo: rgba(23, 28, 25, 0.85);
   --cache: #6fa0ff; --special: #ff6b6b; --lab: #6fd34f; --shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
   color-scheme: dark;
@@ -1105,17 +1106,17 @@ function countyAt(lat, lon) {
 var D = null, map = null, countyLayer = null, labelPane = null;
 var edits = store.get('edits', {});            // { id: { g, was, t, done } }  — changes made on this phone
 var show = Object.assign({ counties: true, names: true, caches: true, labs: true, route: true, pois: true,
-  visits: true, itin: true, hroutes: true, htrails: true, hfound: true, hbrew: true, huntappd: true, hguster: true, hhikes: true, hparks: true }, store.get('show', {}));
+  visits: true, itin: true, brewtop: true, brewall: true, hroutes: true, htrails: true, hfound: true, hbrew: true, hguster: true, hhikes: true, hparks: true }, store.get('show', {}));
 var mode = store.get('mode', 'plan') === 'hist' ? 'hist' : 'plan';
 var visits = store.get('visits', []);          // places marked visited on this phone: {id, stop, name, x, y, t, pk, url, notes, g, at, len, typ, done}
 function poiKey(p) { return (p.name || '') + '|' + p.x + '|' + p.y; }
 function visitOf(p) { var k = poiKey(p); for (var i = 0; i < visits.length; i++) if (visits[i].pk === k) return visits[i]; return null; }
 function nowLocal() { var d = new Date(), z = function (n) { return (n < 10 ? '0' : '') + n; }; return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + ' ' + z(d.getHours()) + ':' + z(d.getMinutes()); }
 function saveVisits() { if (!store.set('visits', visits)) toast('This browser is not saving visits. Save a file before closing.'); drawVisits(); refreshChrome(); }
-var MODE_LAYERS = { plan: ['itin', 'labs', 'caches', 'pois', 'visits'], hist: ['hroutes', 'hfound', 'hhikes', 'hparks', 'hbrew', 'hguster'] };
-var POINT_LAYERS = { plan: ['pois', 'caches', 'labs'], hist: ['hguster', 'hbrew', 'hhikes', 'hparks', 'hfound'] };
+var MODE_LAYERS = { plan: ['brewall', 'brewtop', 'itin', 'labs', 'caches', 'pois', 'visits'], hist: ['hroutes', 'hfound', 'hhikes', 'hparks', 'hbrew', 'hguster'] };
+var POINT_LAYERS = { plan: ['pois', 'caches', 'labs', 'brewtop', 'brewall'], hist: ['hguster', 'hbrew', 'hhikes', 'hparks', 'hfound'] };
 var LINE_LAYERS = { plan: [], hist: ['hroutes'] };
-var ZOOM_MIN = { hfound: 7, hbrew: 5.5 };
+var ZOOM_MIN = { hfound: 7, hbrew: 5.5, brewtop: 5.5, brewall: 8 };
 var SMILEY_ZOOM = 12;                                    // found caches turn from dots into smileys at about town level           // layers that wait until you zoom in a little
 function zoomOk(k) { return !map || !ZOOM_MIN[k] || map.getZoom() >= ZOOM_MIN[k]; }
 function applyLayers() {
@@ -1269,6 +1270,9 @@ function buildMap() {
     return arr.map(function (p) { var m = new IconMarker([p.y, p.x], { renderer: canvas, radius: r, img: ICON_IMG[typeof key === 'function' ? key(p) : key], dim: dimFn ? dimFn(p) : false, interactive: false }); m._r0 = r; m._icon = true; allDots.push(m); return m; });
   }
   groups.pois = L.layerGroup(icons(D.pois, function (p) { return 's' + (STOPS[p.stop] ? p.stop : 6); }));
+  D.brewTop = D.brews.filter(function (b) { return b.top; }); D.brewRest = D.brews.filter(function (b) { return !b.top; });
+  groups.brewtop = L.layerGroup(icons(D.brewTop, 's1', function (b) { return !!b.tmp; }, 13));
+  groups.brewall = L.layerGroup(dots(D.brewRest, css('--brewdot'), 3.6));
   groups.visits = L.layerGroup(); visitCanvas = canvas;
   groups.itin = L.layerGroup();
   // ---- history map
@@ -1402,7 +1406,7 @@ function setBasemap(id) {
 }
 
 /* ---------- tapping ---------- */
-var KIND = { pois: 'Point of interest', caches: 'Planned cache', labs: 'Lab cache', hfound: 'Found cache', hbrew: 'Brewery visited', huntappd: 'Untappd top brewery', hguster: 'Guster show', hhikes: 'Hike completed', hparks: 'Park or viewpoint', hroutes: 'Trip route', htrails: 'Trail hiked' };
+var KIND = { brewtop: 'Want-to-go brewery', brewall: 'Brewery, not visited', pois: 'Point of interest', caches: 'Planned cache', labs: 'Lab cache', hfound: 'Found cache', hbrew: 'Brewery visited', hguster: 'Guster show', hhikes: 'Hike completed', hparks: 'Park or viewpoint', hroutes: 'Trip route', htrails: 'Trail hiked' };
 function onTap(ev) {
   if (selMode) { var sc = countyAt(ev.latlng.lat, ev.latlng.lng); if (sc) { if (sel[sc.id]) delete sel[sc.id]; else sel[sc.id] = 1; drawSel(); } return; }
   sheet._tapLL = ev.latlng;
@@ -1413,7 +1417,7 @@ function onTap(ev) {
       if (d < R2) hits.push({ kind: kind, f: arr[i], d: d });
     }
   }
-  var src = { pois: D.pois, caches: D.caches, labs: D.labs };
+  var src = { pois: D.pois, caches: D.caches, labs: D.labs, brewtop: D.brewTop, brewall: D.brewRest };
   POINT_LAYERS[mode].forEach(function (k) { if (show[k] && zoomOk(k)) scan(src[k] || D.hist[k], k); });
   hits.sort(function (a, b) { return a.d - b.d; });
   var lp = map.latLngToLayerPoint(ev.latlng), seen = {};
@@ -1471,13 +1475,12 @@ function showPoint(kind, f) {
   var h = '', c = countyAt(f.y, f.x);
   var fmt = function (d) { if (!d) return null; var p = d.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }); };
   var place = function (f) { return [f.city, f.st].filter(Boolean).join(', ') || null; };
-  if (kind === 'caches') kind = 'cache'; else if (kind === 'labs') kind = 'lab';
+  if (kind === 'caches') kind = 'cache'; else if (kind === 'labs') kind = 'lab'; else if (kind === 'brewtop' || kind === 'brewall') kind = 'brew';
+  var urlLabel = 'Open web page', extra = '';
   if (kind === 'hfound') {
     h = head('Found cache · ' + f.code, f.name || f.code) + '<dl>' + row('Found', fmt(f.fd)) + row('Type', f.type) + row('Difficulty / terrain', (f.d != null ? f.d : '?') + ' / ' + (f.t != null ? f.t : '?')) + row('Size', f.size) + row('Favorites', f.fav) + (f.arch ? row('Status', 'Archived') : '') + '</dl>';
   } else if (kind === 'hbrew') {
     h = head(f.closed ? 'Brewery visited · now closed' : 'Brewery visited', f.name) + '<dl>' + row('Visited', fmt(f.vd)) + row('Where', place(f)) + row('Address', f.addr) + row('Comment', f.note) + '</dl>';
-  } else if (kind === 'huntappd') {
-    h = head('Untappd top brewery' + (f.rank ? ' · #' + f.rank : ''), f.name) + '<dl>' + row('Visited', f.visited ? 'Yes' : 'Not yet') + row('Type', f.kind) + row('Part of', f.sub) + '</dl>';
   } else if (kind === 'hguster') {
     h = head('Guster show', f.name) + '<dl>' + row('Date', fmt(f.date)) + row('Where', place(f)) + row('Note', f.note) + '</dl>';
   } else if (kind === 'hhikes') {
@@ -1488,6 +1491,14 @@ function showPoint(kind, f) {
     h = head((f.cat === 9 ? 'Special cache' : 'County cache') + ' · ' + f.code, f.name) + '<dl>' +
       row('Type', f.type) + row('Difficulty / terrain', (f.d != null ? f.d : '?') + ' / ' + (f.t != null ? f.t : '?')) + row('Size', f.size) + row('Owner', f.owner) +
       row('Favorites', f.fav) + row('Hint', f.hint) + row('My note', f.note) + (f.avail === 0 ? row('Status', 'Disabled') : '') + '</dl>';
+  } else if (kind === 'brew') {
+    var bt = f.kind ? f.kind.charAt(0).toUpperCase() + f.kind.slice(1) : null;
+    h = head(f.want ? 'Brewery \u00b7 on your Want to Go list' : f.top ? 'Brewery \u00b7 top rated' : 'Brewery \u00b7 not visited yet', f.name) + '<dl>' +
+      row('Untappd rating', f.rt != null ? f.rt.toFixed(2) : 'Not rated yet') + row('Type', bt) + row('Where', place(f)) + row('Address', f.addr) +
+      (f.tmp ? row('Google says', 'Temporarily closed') : '') + '</dl>';
+    urlLabel = 'Google Maps';
+    var utl = f.ut && /^https?:\/\//i.test(f.ut) ? f.ut : 'https://untappd.com/search?q=' + encodeURIComponent(f.name || '') + '&type=brewery';
+    extra = '<a class="btn" href="' + esc(utl) + '" target="_blank" rel="noopener">Untappd</a>' + (f.web && /^https?:\/\//i.test(f.web) ? '<a class="btn" href="' + esc(f.web) + '" target="_blank" rel="noopener">Website</a>' : '');
   } else if (kind === 'lab') {
     h = head('Lab cache', f.name) + '<dl>' + row('Stop', f.desc) + row('Comment', f.note) + '</dl>';
   } else {
@@ -1499,7 +1510,7 @@ function showPoint(kind, f) {
   if (c) h += '<div class="incounty"><div><div class="kicker">In</div><b>' + esc(fullName(c)) + '</b> · ' + STATUS[eff(c)] + '</div>' +
     (eff(c) === 1 ? '' : '<button class="btn primary" type="button" data-act="set" data-id="' + esc(c.id) + '" data-g="1" data-stay="1">Mark county found</button>') + '</div>';
   var url = f.url && /^https?:\/\//i.test(f.url) ? f.url : null;
-  h += '<div class="row">' + (url ? '<a class="btn" href="' + esc(url) + '" target="_blank" rel="noopener">Open web page</a>' : '') +
+  h += '<div class="row">' + (url ? '<a class="btn" href="' + esc(url) + '" target="_blank" rel="noopener">' + urlLabel + '</a>' : '') + extra +
     '<button class="btn" type="button" data-act="copy" data-text="' + esc(f.y.toFixed(5) + ', ' + f.x.toFixed(5)) + '">Copy coordinates</button>' + navLink(f, 'drive') + '</div>';
   var dl = D.itin.days.length ? dayLabel(D.itin.days[curDay], curDay) : 'Day 1';
   h += '<div class="kicker" style="margin-top:14px">Itinerary · ' + esc(dl) + '</div><div class="row" style="margin-top:6px"><button class="btn primary wide" type="button" data-act="itadd">Add stop</button></div>' +
@@ -1596,6 +1607,8 @@ function showLayers() {
     ['itin', 'Itinerary routes', D.itin.days.length + ' days · solid = drive times, dotted = estimate', '<span class="ln" style="background:var(--itin)"></span>'],
     ['caches', 'Planned geocaches', D.caches.length.toLocaleString() + ' · blue county, red special', '<span class="pt" style="background:var(--cache)"></span>'],
     ['labs', 'Lab stops', D.labs.length.toLocaleString() + ' stops', '<span class="tri"></span>'],
+    ['brewtop', 'Want-to-go breweries', D.brewTop.length.toLocaleString() + ' \u00b7 Want to Go list or rated ' + '\u2265 your cutoff' + (D.brewTop.some(function (b) { return b.tmp; }) ? ' \u00b7 faded = temporarily closed' : ''), STOPS[1][1]],
+    ['brewall', 'Other breweries not visited', D.brewRest.length.toLocaleString() + ' \u00b7 appear when zoomed in to a region', '<span class="pt" style="background:var(--brewdot)"></span>'],
     ['pois', 'Points of interest', D.pois.length.toLocaleString() + ' in this data', STOPS[3][1]],
     ['visits', 'Visited on this phone', visits.length + ' places · press and hold the map to add one', HICONS.check]
   ]);
@@ -1876,7 +1889,7 @@ function wire() {
 
 /* ---------- data on this phone ---------- */
 var HKEYS = ['hroutes', 'htrails', 'hfound', 'hbrew', 'huntappd', 'hguster', 'hhikes', 'hparks'];
-var LAYERS = ['counties', 'caches', 'labs', 'pois', 'route', 'status', 'built', 'itinerary'].concat(HKEYS);
+var LAYERS = ['counties', 'caches', 'labs', 'pois', 'route', 'status', 'built', 'itinerary', 'brews'].concat(HKEYS);
 function idb() {
   return new Promise(function (res, rej) {
     var q = indexedDB.open('tpm', 1);
@@ -1936,7 +1949,7 @@ function fromGeoJSON(gj) {            // a layer exported from ArcGIS Pro with F
   }
   throw new Error('This point layer was not recognized. Expected planned geocaches, lab caches or points of interest.');
 }
-var NAMES = { counties: 'counties', caches: 'planned geocaches', labs: 'lab cache stops', pois: 'points of interest', route: 'route segments', status: 'county statuses', hroutes: 'trip route segments', htrails: 'trails', hfound: 'found caches', hbrew: 'breweries', huntappd: 'Untappd breweries', hguster: 'Guster shows', hhikes: 'hikes', hparks: 'parks', itinerary: 'itinerary' };
+var NAMES = { brews: 'breweries not visited yet', counties: 'counties', caches: 'planned geocaches', labs: 'lab cache stops', pois: 'points of interest', route: 'route segments', status: 'county statuses', hroutes: 'trip route segments', htrails: 'trails', hfound: 'found caches', hbrew: 'breweries', huntappd: 'Untappd breweries', hguster: 'Guster shows', hhikes: 'hikes', hparks: 'parks', itinerary: 'itinerary' };
 function importFile(file) {
   if (!file) return;
   if (file.size > 60 * 1024 * 1024) { toast('That file is too large for a phone (over 60 MB).'); return; }
@@ -2670,11 +2683,11 @@ function addDay() {
   curDay = days.length - 1; saveItin();
 }
 function placeOf(kind, f) {
-  var stop = kind === 'pois' || kind === 'search' || kind === 'pin' ? (f.stop || 6) : kind === 'caches' ? 8 : kind === 'labs' ? 9 : kind === 'hbrew' || kind === 'huntappd' ? 1 : kind === 'hhikes' ? 2 : kind === 'hparks' ? 4 : kind === 'hguster' ? 7 : 6;
+  var stop = kind === 'pois' || kind === 'search' || kind === 'pin' ? (f.stop || 6) : kind === 'caches' ? 8 : kind === 'labs' ? 9 : kind === 'hbrew' || kind === 'brew' ? 1 : kind === 'hhikes' ? 2 : kind === 'hparks' ? 4 : kind === 'hguster' ? 7 : 6;
   return { name: f.name || f.code || 'Stop', x: f.x, y: f.y, stop: stop, kind: kind, code: f.code || null, url: f.url || null, addr: f.addr || null };
 }
 function addToItin(kind, f, where) {
-  if (kind === 'cache') kind = 'caches'; else if (kind === 'lab') kind = 'labs';
+  if (kind === 'cache') kind = 'caches'; else if (kind === 'lab') kind = 'labs'; else if (kind === 'brewtop' || kind === 'brewall') kind = 'brew';
   if (!D.itin.days.length) addDay();
   var day = D.itin.days[curDay], p = placeOf(kind, f);
   if (where === 'start') day.start = p;
@@ -3141,7 +3154,7 @@ function costsCsv() {
 /* ---------- boot ---------- */
 function start(data) { loadIcons().then(function () { start2(data); }); }
 function start2(data) {
-  D = { counties: data.counties || [], caches: data.caches || [], labs: data.labs || [], pois: data.pois || [], route: data.route || [], built: data.built || '', hist: {} };
+  D = { brews: data.brews || [], counties: data.counties || [], caches: data.caches || [], labs: data.labs || [], pois: data.pois || [], route: data.route || [], built: data.built || '', hist: {} };
   HKEYS.forEach(function (k) { D.hist[k] = data[k] || []; });
   D.itin = data.itinerary && data.itinerary.days ? data.itinerary : { name: '', days: [] };
   fixCacheStops(D.itin);
