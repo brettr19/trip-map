@@ -1949,7 +1949,7 @@ function fromGeoJSON(gj) {            // a layer exported from ArcGIS Pro with F
   }
   throw new Error('This point layer was not recognized. Expected planned geocaches, lab caches or points of interest.');
 }
-var NAMES = { brews: 'breweries not visited yet', counties: 'counties', caches: 'planned geocaches', labs: 'lab cache stops', pois: 'points of interest', route: 'route segments', status: 'county statuses', hroutes: 'trip route segments', htrails: 'trails', hfound: 'found caches', hbrew: 'breweries', huntappd: 'Untappd breweries', hguster: 'Guster shows', hhikes: 'hikes', hparks: 'parks', itinerary: 'itinerary' };
+var NAMES = { brews: 'breweries not visited yet', counties: 'counties', caches: 'planned geocaches', labs: 'lab cache stops', pois: 'points of interest', route: 'route segments', status: 'county statuses', hroutes: 'trip route segments', htrails: 'trails', hfound: 'found caches', hbrew: 'breweries visited', huntappd: 'Untappd breweries', hguster: 'Guster shows', hhikes: 'hikes', hparks: 'parks', itinerary: 'itinerary' };
 function importFile(file) {
   if (!file) return;
   if (file.size > 60 * 1024 * 1024) { toast('That file is too large for a phone (over 60 MB).'); return; }
@@ -1958,7 +1958,11 @@ function importFile(file) {
     var j = JSON.parse(txt), put = {};
     if (j && j.geocations === 'backup') { showRestore(j); return; }
     if (j && j.type === 'FeatureCollection') put = fromGeoJSON(j);
-    else if (j && typeof j === 'object') LAYERS.forEach(function (k) { if (j[k] != null) put[k] = j[k]; });
+    else if (j && typeof j === 'object') LAYERS.forEach(function (k) {
+      if (j[k] == null || k === 'route') return;                        // the planned route from Pro is retired
+      if ((k === 'caches' || k === 'labs' || k === 'pois') && Array.isArray(j[k]) && !j[k].length) return;   // an older file's empty planning layer never clears the phone's plan
+      put[k] = j[k];
+    });
     var got = Object.keys(put).filter(function (k) { return NAMES[k]; });
     if (!got.length) throw new Error('No map layers were found in that file.');
     if (!put.built) put.built = new Date().toISOString().slice(0, 10);
@@ -2436,9 +2440,10 @@ function showStats() {
     (tot.CA[1] ? '<div><span>Canada</span><b>' + tot.CA[0] + ' of ' + tot.CA[1] + '</b><small>' + pct(tot.CA[0], tot.CA[1]) + '%</small></div>' : '') +
     '<div><span>Caches found</span><b>' + Hh.hfound.length.toLocaleString() + '</b></div>' +
     '<div><span>Trips</span><b>' + tl.length + '</b></div>' +
-    '<div><span>Breweries</span><b>' + Hh.hbrew.length.toLocaleString() + '</b></div>' +
     '<div><span>Hikes</span><b>' + Hh.hhikes.length + '</b></div>' +
-    '<div><span>Guster shows</span><b>' + Hh.hguster.length + '</b></div></div>';
+    '<div><span>Guster shows</span><b>' + Hh.hguster.length + '</b></div>' +
+    '<div><span>Breweries</span><b>' + Hh.hbrew.length.toLocaleString() + '</b></div>' +
+    '<div><span>Want to visit</span><b>' + D.brews.filter(function (b) { return b.top; }).length.toLocaleString() + '</b><small>breweries left</small></div></div>';
   var rows = Object.keys(by).map(function (k) { return by[k]; });
   rows.sort(statSort === 'az' ? function (a, b) { return (a.c + a.s).localeCompare(b.c + b.s); }
           : statSort === 'left' ? function (a, b) { var la = a.n - a.f || 1e9, lb = b.n - b.f || 1e9; return la - lb || b.f / b.n - a.f / a.n; }
