@@ -946,6 +946,13 @@ dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .changes li { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
 .changes li span:last-child { color: var(--muted); white-space: nowrap; }
 .changes li.done { opacity: 0.55; }
+.findres li { align-items: baseline; }
+.findres li button { text-align: left; text-decoration: none; color: var(--fg); font-weight: 600; min-width: 0; overflow-wrap: anywhere; }
+.findres li span { font-size: 13px; text-align: right; white-space: normal !important; max-width: 55%; }
+.findday { display: flex; gap: 8px; align-items: stretch; }
+.findday input { flex: 1 1 auto; min-width: 0; }
+.findday .btn { flex: none; }
+.sheet > .link.small:first-child { display: inline-block; margin: -2px 0 6px; }
 textarea { width: 100%; min-height: 120px; margin-top: 12px; font: 12px/1.4 var(--mono); background: var(--panel-2); color: var(--fg); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
 .tundo { margin-left: 10px; border: 0; background: none; color: inherit; font: inherit; font-weight: 700; text-decoration: underline; padding: 4px 2px; cursor: pointer; }
 .selbar { position: absolute; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 650; background: var(--panel); border-radius: 16px; box-shadow: var(--shadow); padding: 12px; }
@@ -984,6 +991,9 @@ textarea { width: 100%; min-height: 120px; margin-top: 12px; font: 12px/1.4 var(
   <div class="fabs">
     <button class="fab" id="btnItin" type="button" aria-label="Itinerary" title="Itinerary">
       <svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>
+    </button>
+    <button class="fab" id="btnFind" type="button" aria-label="Search the history map" title="Search" hidden>
+      <svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5.5 5.5"/></svg>
     </button>
     <button class="fab" id="btnLayers" type="button" aria-label="Layers" title="Layers">
       <svg viewBox="0 0 24 24"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="m3 13 9 5 9-5"/></svg>
@@ -1126,6 +1136,7 @@ function applyLayers() {
 function setMode(m) {
   mode = m; store.set('mode', m); closeSheet();
   $('mPlan').setAttribute('aria-pressed', m === 'plan'); $('mHist').setAttribute('aria-pressed', m === 'hist');
+  $('btnFind').hidden = m !== 'hist';
   if (map) applyLayers();
 }
 var groups = {};
@@ -1451,8 +1462,42 @@ function chooseHit(hits) {
 
 /* ---------- sheet ---------- */
 var sheet = null;
-function openSheet(html) { sheet._export = false; sheet.innerHTML = html; sheet.classList.add('open'); sheet.scrollTop = 0; }
-function closeSheet() { sheet.classList.remove('open'); }
+function openSheet(html) { clearHi(); sheet._export = false; sheet.innerHTML = html; sheet.classList.add('open'); sheet.scrollTop = 0; }
+function closeSheet() { sheet.classList.remove('open'); clearHi(); }
+/* ---- yellow highlight of what the open window is about (drawn just under the map's points and lines) ---- */
+var hiLayer = null, hiRend = null, HI = '#ffd400';
+function clearHi() { if (hiLayer) hiLayer.clearLayers(); }
+function hiInit() {
+  if (hiLayer || !map) return !!hiLayer;
+  map.createPane('hilite').style.zIndex = 390; map.getPane('hilite').style.pointerEvents = 'none';
+  hiRend = L.svg({ pane: 'hilite', padding: 0.5 }); hiLayer = L.layerGroup().addTo(map); return true;
+}
+function hiPoint(f) {
+  if (!hiInit() || !f || !isFinite(f.y)) return;
+  hiLayer.addLayer(L.circleMarker([f.y, f.x], { renderer: hiRend, pane: 'hilite', radius: 17, color: HI, weight: 5, opacity: 1, fillColor: HI, fillOpacity: 0.35, interactive: false }));
+}
+function hiLines(recs) {
+  if (!hiInit()) return;
+  recs.forEach(function (r) { hiLayer.addLayer(L.polyline(routePts(r), { renderer: hiRend, pane: 'hilite', color: HI, weight: 13, opacity: 0.8, lineCap: 'round', lineJoin: 'round', interactive: false })); });
+}
+function hiCounty(c) {
+  if (!hiInit() || !c || !c.rings) return;
+  var polys = c.rings.map(function (r) { var a = r.a, pts = []; for (var i = 0; i < a.length; i += 2) pts.push([unmy(a[i + 1]), a[i] * 360 - 180]); return pts; });
+  hiLayer.addLayer(L.polygon(polys, { renderer: hiRend, pane: 'hilite', color: HI, weight: 5, opacity: 1, fillColor: HI, fillOpacity: 0.22, interactive: false }));
+}
+function keepVisible(f) {          // on a phone, nudge the map so the tapped point isn't under the window
+  if (!map || window.innerWidth >= 720 || !isFinite(f.y)) return;
+  var p = map.latLngToContainerPoint([f.y, f.x]), mh = map.getSize().y, top = mh - Math.min(sheet.offsetHeight, mh * 0.75);
+  if (p.y > top - 40 || p.y < 90) map.panBy([0, p.y - Math.max(110, (top - 40) / 2)], { animate: true });
+}
+function dayRecs(f) { return D.hist.hroutes.filter(function (r) { return r.trip === f.trip && r.date === f.date; }); }
+/* fit the map to something, leaving room for the open window */
+function showOnMap(latlngs, maxZoom) {
+  if (!latlngs.length) return;
+  var wide = window.innerWidth >= 720, open = sheet.classList.contains('open');
+  var tl = [wide && open ? 420 : 24, 90], br = [wide ? 80 : 24, !wide && open ? Math.min(sheet.offsetHeight, window.innerHeight * 0.6) + 20 : 30];
+  map.fitBounds(L.latLngBounds(latlngs), { paddingTopLeft: tl, paddingBottomRight: br, maxZoom: maxZoom || 14, animate: true });
+}
 function head(kicker, title) {
   return '<div class="sheet-head"><div><div class="kicker">' + esc(kicker) + '</div><h2>' + esc(title) + '</h2></div><button class="x" type="button" data-act="close" aria-label="Close">×</button></div>';
 }
@@ -1469,6 +1514,7 @@ function showCounty(c) {
   openSheet(head(c.c === 'CA' ? 'Canada census division' : 'US county', fullName(c)) + segHtml(c) + editNote(c) +
     '<div class="row tight"><button class="btn" type="button" data-act="selstart" data-id="' + esc(c.id) + '">Select several counties</button></div>' +
     (sheet._tapLL ? '<div class="row"><button class="btn" type="button" data-act="pinhere">Add a place at this spot</button></div>' : ''));
+  hiCounty(c);
 }
 function row(k, v) { return (v == null || v === '') ? '' : '<dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd>'; }
 function showPoint(kind, f) {
@@ -1516,7 +1562,122 @@ function showPoint(kind, f) {
   h += '<div class="kicker" style="margin-top:14px">Itinerary · ' + esc(dl) + '</div><div class="row" style="margin-top:6px"><button class="btn primary wide" type="button" data-act="itadd">Add stop</button></div>' +
        '<div class="row two" style="margin-top:8px"><button class="btn" type="button" data-act="itstart">Start day</button><button class="btn" type="button" data-act="itend">End day</button></div>';
   sheet._point = { kind: kind, f: f };
-  openSheet(h);
+  openSheet(h); hiPoint(f); keepVisible(f);
+}
+var findIdx = null, findQ = '', findDate = '';
+function buildFind() {
+  findIdx = null;
+  var H = D.hist, out = [], trips = {};
+  var add = function (kind, f, label, sub, extra) { out.push({ kind: kind, f: f, t: label, s: sub, k: (label + ' ' + (extra || '') + ' ' + (sub || '')).toLowerCase() }); };
+  var where = function (f) { return [f.city, f.st].filter(Boolean).join(', '); };
+  H.hfound.forEach(function (f) { add('hfound', f, f.name || f.code, 'Found cache · ' + f.code + (f.fd ? ' · ' + f.fd : ''), f.code + ' ' + (f.st || '')); });
+  H.hbrew.forEach(function (f) { add('hbrew', f, f.name, 'Brewery' + (where(f) ? ' · ' + where(f) : '')); });
+  H.hguster.forEach(function (f) { add('hguster', f, f.name, 'Guster show' + (f.date ? ' · ' + f.date : '') + (where(f) ? ' · ' + where(f) : '')); });
+  H.hhikes.forEach(function (f) { add('hhikes', f, f.name, 'Hike' + (f.vd ? ' · ' + f.vd : '')); });
+  H.hparks.forEach(function (f) { add('hparks', f, f.name, 'Park or viewpoint' + (f.vd ? ' · ' + f.vd : '')); });
+  H.hroutes.forEach(function (r) { if (!r.trip) return; var t = trips[r.trip] || (trips[r.trip] = { n: 0, d0: r.date, d1: r.date }); t.n++; if (r.date && (!t.d0 || r.date < t.d0)) t.d0 = r.date; if (r.date && (!t.d1 || r.date > t.d1)) t.d1 = r.date; });
+  Object.keys(trips).forEach(function (n) { var t = trips[n]; out.push({ kind: 'trip', f: { trip: n }, t: n, s: 'Trip' + (t.d0 ? ' · ' + t.d0 + (t.d1 !== t.d0 ? ' to ' + t.d1 : '') : ''), k: n.toLowerCase(), pri: 1 }); });
+  D.counties.forEach(function (c) { out.push({ kind: 'county', f: c, t: fullName(c), s: (c.c === 'CA' ? 'Census division' : 'County') + ' · ' + STATUS[eff(c)], k: fullName(c).toLowerCase(), pri: 2 }); });
+  findIdx = out;
+}
+function findMatches(q) {
+  var words = q.toLowerCase().split(/\s+/).filter(Boolean); if (!words.length) return [];
+  var hits = [];
+  for (var i = 0; i < findIdx.length && hits.length < 400; i++) { var e = findIdx[i], ok = true; for (var w = 0; w < words.length; w++) if (e.k.indexOf(words[w]) < 0) { ok = false; break; } if (ok) hits.push(e); }
+  var w0 = words.join(' ');
+  hits.sort(function (a, b) { var sa = a.t.toLowerCase().indexOf(w0) === 0 ? 0 : 1, sb = b.t.toLowerCase().indexOf(w0) === 0 ? 0 : 1; return sa - sb || (a.pri ? -a.pri : 0) - (b.pri ? -b.pri : 0) || a.t.localeCompare(b.t); });
+  return hits;
+}
+function routeRange() { var d0 = '', d1 = ''; D.hist.hroutes.forEach(function (r) { if (r.date) { if (!d0 || r.date < d0) d0 = r.date; if (!d1 || r.date > d1) d1 = r.date; } }); return [d0, d1]; }
+function showFind() {
+  if (!findIdx) buildFind();
+  var rr = routeRange();
+  openSheet(head('History map', 'Search') +
+    '<div class="form" style="margin-top:6px"><label>Name, cache code, trip or county<input id="findQ" type="search" autocomplete="off" enterkeyhint="search" placeholder="e.g. Sea Dog, GC1234, Vermont" value="' + esc(findQ) + '"></label>' +
+    '<label>Where were we on a day?<span class="findday"><input id="findD" type="date"' + (rr[0] ? ' min="' + rr[0] + '" max="' + rr[1] + '"' : '') + ' value="' + esc(findDate) + '"><button class="btn primary" type="button" data-act="fdaygo">Show the day</button></span></label></div>' +
+    '<div id="findOut"></div>');
+  sheet._find = true;
+  var q = $('findQ'); q.addEventListener('input', function () { findQ = q.value; clearTimeout(q._t); q._t = setTimeout(renderFind, 120); });
+  $('findD').addEventListener('change', function () { var v = $('findD').value; if (v && v.slice(0, 4) >= '1990') { findDate = v; showDay(v); } });
+  renderFind();
+  if (window.innerWidth >= 720 || !findQ) setTimeout(function () { q.focus(); }, 60);
+}
+function renderFind() {
+  var box = $('findOut'); if (!box) return;
+  if (!findQ.trim()) { box.innerHTML = '<p class="note">Type part of a name. Pick a date to see that day’s route and everything you did.</p>'; return; }
+  var hits = findMatches(findQ); sheet._found = hits.slice(0, 60);
+  if (!hits.length) { box.innerHTML = '<p class="note">Nothing matches “' + esc(findQ) + '”.</p>'; return; }
+  box.innerHTML = '<ul class="changes findres">' + sheet._found.map(function (e, i) { return '<li><button class="link" type="button" data-act="fpick" data-i="' + i + '">' + esc(e.t) + '</button><span>' + esc(e.s) + '</span></li>'; }).join('') + '</ul>' +
+    (hits.length > 60 ? '<p class="note">Showing 60 of ' + (hits.length >= 400 ? 'many' : hits.length) + '. Type more to narrow it down.</p>' : '');
+}
+function backToFind() { return '<button class="link small" type="button" data-act="findback">‹ Back to search</button>'; }
+function pickFound(e) {
+  var fromFind = true;
+  if (e.kind === 'trip') return showTrip(e.f.trip, fromFind);
+  if (e.kind === 'county') {
+    showCounty(e.f); sheet.insertAdjacentHTML('afterbegin', backToFind());
+    var b = e.f.b; showOnMap([[unmy(b[3]), b[0] * 360 - 180], [unmy(b[1]), b[2] * 360 - 180]], 11); return;
+  }
+  showPoint(e.kind, e.f); sheet.insertAdjacentHTML('afterbegin', backToFind());
+  showOnMap([[e.f.y, e.f.x]], 14);
+}
+function tripRecs(name) { return D.hist.hroutes.filter(function (r) { return r.trip === name; }); }
+function allPts(recs) { var p = []; recs.forEach(function (r) { p = p.concat(routePts(r)); }); return p; }
+function fmtDay(d) { var p = d.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }); }
+function showTrip(name, fromFind) {
+  var recs = tripRecs(name), days = {};
+  recs.forEach(function (r) { if (r.date) { var d = days[r.date] || (days[r.date] = { mi: 0 }); d.mi += r.mi || 0; } });
+  var dl = Object.keys(days).sort(), mi = recs.reduce(function (a, r) { return a + lineMi(r); }, 0);
+  var h = (fromFind ? backToFind() : '') + head('Trip', name) +
+    '<div class="row" style="margin-top:6px;align-items:center;gap:8px"><i class="tripdot" style="width:28px;height:6px;border-radius:3px;background:' + tripColor(name) + '"></i><span class="note" style="margin:0">' +
+    dl.length + (dl.length === 1 ? ' day' : ' days') + ' · about ' + Math.round(mi).toLocaleString() + ' mi</span></div>' +
+    '<ul class="changes findres">' + dl.map(function (d) { return '<li><button class="link" type="button" data-act="fday" data-d="' + d + '">' + esc(fmtDay(d)) + '</button><span>' + daySummary(d) + '</span></li>'; }).join('') + '</ul>';
+  sheet._point = null; openSheet(h); hiLines(recs); showOnMap(allPts(recs), 12);
+}
+function onDay(d) {
+  var H = D.hist;
+  return { routes: H.hroutes.filter(function (r) { return r.date === d; }), found: H.hfound.filter(function (f) { return f.fd === d; }),
+    brew: H.hbrew.filter(function (f) { return f.vd === d; }), hikes: H.hhikes.filter(function (f) { return f.vd === d; }),
+    parks: H.hparks.filter(function (f) { return f.vd === d; }), guster: H.hguster.filter(function (f) { return f.date === d; }) };
+}
+function daySummary(d) {
+  var o = onDay(d), bits = [];
+  if (o.found.length) bits.push(o.found.length + (o.found.length === 1 ? ' cache' : ' caches'));
+  if (o.brew.length) bits.push(o.brew.length + (o.brew.length === 1 ? ' brewery' : ' breweries'));
+  if (o.hikes.length) bits.push(o.hikes.length + (o.hikes.length === 1 ? ' hike' : ' hikes'));
+  if (o.parks.length) bits.push(o.parks.length + (o.parks.length === 1 ? ' park' : ' parks'));
+  if (o.guster.length) bits.push('Guster');
+  return esc(bits.join(' · ') || 'driving');
+}
+function nearDays(d) {
+  var all = {}; D.hist.hroutes.forEach(function (r) { if (r.date) all[r.date] = 1; }); D.hist.hfound.forEach(function (f) { if (f.fd) all[f.fd] = 1; });
+  var ks = Object.keys(all).sort(), before = null, after = null;
+  for (var i = 0; i < ks.length; i++) { if (ks[i] < d) before = ks[i]; else if (ks[i] > d) { after = ks[i]; break; } }
+  return [before, after];
+}
+function showDay(d) {
+  findDate = d;
+  var o = onDay(d), pts = allPts(o.routes), items = [];
+  [['hfound', o.found], ['hbrew', o.brew], ['hhikes', o.hikes], ['hparks', o.parks], ['hguster', o.guster]].forEach(function (g) { g[1].forEach(function (f) { items.push({ kind: g[0], f: f }); pts.push([f.y, f.x]); }); });
+  var trips = {}; o.routes.forEach(function (r) { if (r.trip) trips[r.trip] = 1; });
+  var mi = o.routes.reduce(function (a, r) { return a + lineMi(r); }, 0);
+  var h = backToFind() + head(Object.keys(trips).join(', ') || 'A day', fmtDay(d));
+  if (!pts.length) {
+    var nd = nearDays(d);
+    h += '<p class="note">Nothing recorded on this day.</p><div class="row two">' +
+      (nd[0] ? '<button class="btn" type="button" data-act="fday" data-d="' + nd[0] + '">‹ ' + esc(fmtDay(nd[0])) + '</button>' : '') +
+      (nd[1] ? '<button class="btn" type="button" data-act="fday" data-d="' + nd[1] + '">' + esc(fmtDay(nd[1])) + ' ›</button>' : '') + '</div>';
+    sheet._point = null; openSheet(h); return;
+  }
+  h += '<dl>' + (o.routes.length ? row('Driven', '~' + Math.round(mi).toLocaleString() + ' mi') : row('Route', 'No route recorded')) + row('Caches found', o.found.length || null) + '</dl>';
+  sheet._dayItems = items;
+  if (items.length) h += '<ul class="changes findres">' + items.map(function (e, i) { return '<li><button class="link" type="button" data-act="fdayitem" data-i="' + i + '">' + esc(e.f.name || e.f.code || 'Unnamed') + '</button><span>' + esc(KIND[e.kind]) + '</span></li>'; }).join('') + '</ul>';
+  var nd2 = nearDays(d);
+  h += '<div class="row two" style="margin-top:10px">' + (nd2[0] ? '<button class="btn" type="button" data-act="fday" data-d="' + nd2[0] + '">‹ Day before</button>' : '') +
+       (nd2[1] ? '<button class="btn" type="button" data-act="fday" data-d="' + nd2[1] + '">Day after ›</button>' : '') + '</div>';
+  sheet._point = null; openSheet(h);
+  hiLines(o.routes); items.forEach(function (e) { hiPoint(e.f); });
+  showOnMap(pts, 13);
 }
 function showLine(kind, f) {
   var h, fmt = function (d) { if (!d) return null; var p = d.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }); };
@@ -1525,12 +1686,15 @@ function showLine(kind, f) {
     same.forEach(function (r) { if (r.date) days[r.date] = 1; });
     var dl = Object.keys(days).sort();
     h = head('Trip route', f.trip || 'Unnamed trip') + '<div class="row" style="margin-top:6px;align-items:center;gap:8px"><i class="tripdot" style="width:28px;height:6px;border-radius:3px;background:' + tripColor(f.trip) + '"></i><span class="note" style="margin:0">This trip\u2019s color on the map</span></div><dl>' + row('This day', fmt(f.date)) + row('Distance', f.mi ? Math.round(f.mi).toLocaleString() + ' mi' : null) +
-      (dl.length > 1 ? row('Trip dates', fmt(dl[0]) + ' to ' + fmt(dl[dl.length - 1])) : '') + row('Notes', f.notes) + '</dl>';
+      (dl.length > 1 ? row('Trip dates', fmt(dl[0]) + ' to ' + fmt(dl[dl.length - 1])) : '') + row('Notes', f.notes) + '</dl>' +
+      '<div class="row two">' + (f.date ? '<button class="btn" type="button" data-act="fday" data-d="' + esc(f.date) + '">Everything on this day</button>' : '') +
+      (f.trip ? '<button class="btn" type="button" data-act="ftrip" data-t="' + esc(f.trip) + '">Whole trip</button>' : '') + '</div>';
   } else {
     h = head('Trail hiked', f.name || 'Trail') + '<dl>' + row('Distance', f.mi != null ? f.mi + ' mi' : null) + row('AllTrails rating', f.rt) + row('Notes', f.notes) + '</dl>';
     if (f.url && /^https?:\/\//i.test(f.url)) h += '<div class="row"><a class="btn" href="' + esc(f.url) + '" target="_blank" rel="noopener">Open in AllTrails</a></div>';
   }
   sheet._point = null; openSheet(h);
+  if (kind === 'hroutes') hiLines(dayRecs(f)); else hiLines([f]);
 }
 function byId(id) { for (var i = 0; i < D.counties.length; i++) if (D.counties[i].id === id) return D.counties[i]; return null; }
 var undoStack = [];                                     // [{ ids, before: { id: edit or null }, what }]
@@ -1740,6 +1904,9 @@ function wire() {
     var T = BOOK_TYPES[ev.target.value] || BOOK_TYPES.other, ls = sheet.querySelectorAll('.form label');
     if (ls[2]) ls[2].firstChild.nodeValue = T.from + ' '; if (ls[3]) ls[3].firstChild.nodeValue = T.to + ' ';
   });
+  sheet.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter' && ev.target.id === 'findQ') { ev.preventDefault(); if (sheet._found && sheet._found.length) pickFound(sheet._found[0]); }
+  });
   sheet.addEventListener('click', function (ev) {
     var b = ev.target.closest('[data-act]'); if (!b) return;
     var act = b.getAttribute('data-act'), c = b.getAttribute('data-id') ? byId(b.getAttribute('data-id')) : null;
@@ -1798,6 +1965,12 @@ function wire() {
     else if (act === 'backup') saveBackup();
     else if (act === 'restoreok') applyRestore();
     else if (act === 'hit' && sheet._hits) openHit(sheet._hits[+b.getAttribute('data-i')]);
+    else if (act === 'fpick' && sheet._found) pickFound(sheet._found[+b.getAttribute('data-i')]);
+    else if (act === 'findback') showFind();
+    else if (act === 'fday') showDay(b.getAttribute('data-d'));
+    else if (act === 'fdaygo') { var dv = $('findD') && $('findD').value; if (dv) showDay(dv); else toast('Pick a date first'); }
+    else if (act === 'ftrip') showTrip(b.getAttribute('data-t'), false);
+    else if (act === 'fdayitem' && sheet._dayItems) { var it = sheet._dayItems[+b.getAttribute('data-i')], dd = findDate; showPoint(it.kind, it.f); sheet.insertAdjacentHTML('afterbegin', '<button class="link small" type="button" data-act="fday" data-d="' + dd + '">\u2039 Back to ' + esc(fmtDay(dd)) + '</button>'); showOnMap([[it.f.y, it.f.x]], 14); }
     else if (act === 'copycsv') copyText(csvText(changeList()), 'Copied');
     else if (act === 'copy') copyText(b.getAttribute('data-text'), 'Coordinates copied');
   });
@@ -1809,6 +1982,8 @@ function wire() {
     drawLabels();
   });
   $('btnLayers').addEventListener('click', showLayers);
+  $('btnFind').addEventListener('click', function () { showFind(); });
+  $('btnFind').hidden = mode !== 'hist';
   $('selbar').addEventListener('click', function (ev) { var b = ev.target.closest('[data-sel]'); if (!b || b.disabled && b.getAttribute('data-sel') !== 'x') return; var v = b.getAttribute('data-sel'); if (v === 'x') endSelect(); else applySelect(+v); });
   $('tally').addEventListener('click', function () { if (mode === 'hist') showStats(); else showNotFound(); });
   $('tally').addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); if (mode === 'hist') showStats(); else showNotFound(); } });
