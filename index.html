@@ -760,6 +760,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
 .daytabs { display: flex; gap: 4px; overflow-x: auto; flex: 1; min-width: 0; align-items: center; scrollbar-width: thin; scroll-padding: 0 8px; padding: 2px 0 4px; }
 .daytabs .mon { flex: none; font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); writing-mode: vertical-rl; transform: rotate(180deg); padding: 0 1px; }
 .daytabs button { flex: none; border: 2px solid var(--line); background: var(--panel); border-radius: 10px; width: 42px; height: 44px; padding: 0; font-weight: 700; font-size: 16px; line-height: 1.05; white-space: nowrap; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.daynav.droptargets .daytabs button[aria-selected="false"], .daynav.droptargets .dstep:not([disabled]) { border-style: dashed; border-color: var(--itin); }
+body.drag-stop .daynav { position: sticky; top: -1px; z-index: 6; background: var(--panel); padding: 6px 0; box-shadow: 0 6px 8px -6px rgba(0,0,0,.25); }
+.daynav .dropon { background: var(--itin) !important; color: #fff !important; border-style: solid !important; transform: scale(1.08); }
 .daytabs button small { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .03em; opacity: .75; }
 .daytabs button[aria-selected="true"] { background: var(--fg); color: var(--panel); border-color: var(--fg); }
 .dayrow { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
@@ -1928,8 +1931,11 @@ function wire() {
     else if ((act === 'layersall' || act === 'layersnone') && sheet._layerKeys) { sheet._layerKeys.forEach(function (k) { show[k] = act === 'layersall'; }); store.set('show', show); applyLayers(); drawLabels(); showLayers(); }
     else if (act === 'nfgo') { var cc = byId(b.getAttribute('data-id')); if (cc) { closeSheet(); map.fitBounds([[unmy(cc.b[3]), cc.b[0] * 360 - 180], [unmy(cc.b[1]), cc.b[2] * 360 - 180]], { padding: [40, 40], maxZoom: 12 }); setTimeout(function () { showCounty(cc); }, 400); } }
     else if ((act === 'itadd' || act === 'itstart' || act === 'itend') && sheet._point) { addToItin(sheet._point.kind, sheet._point.f, act === 'itstart' ? 'start' : act === 'itend' ? 'end' : 'stop'); closeSheet(); }
+    else if (act === 'stopasend' || act === 'stopasstart') stopAsEnd(+b.getAttribute('data-i'), act === 'stopasend');
+    else if (act === 'stopnext') { var nd = curDay + 1; if (nd >= D.itin.days.length) { var keep = curDay; addDay(); curDay = keep; } moveToDay(curDay, +b.getAttribute('data-i'), nd); closeSheet(); }
+    else if (act === 'restnext') { var rd = curDay + 1; if (rd >= D.itin.days.length) { var kp = curDay; addDay(); curDay = kp; } var rest = D.itin.days[curDay].stops.splice(+b.getAttribute('data-i')); var tgt = D.itin.days[rd]; tgt.stops = rest.concat(tgt.stops); scheduleRoute(D.itin.days[curDay]); scheduleRoute(tgt); saveItin(); drawItin(); renderItin(); closeSheet(); toast('Moved ' + rest.length + (rest.length === 1 ? ' stop' : ' stops') + ' to the start of ' + dayLabel(tgt, rd)); }
     else if (/^stop(save|up|down|del|move|visit|unvisit|dnf|back)$/.test(act)) stopAction(act, +b.getAttribute('data-i'));
-    else if (act === 'stopto') { var dd = D.itin.days[curDay], st = dd.stops.splice(+b.getAttribute('data-i'), 1)[0], to = D.itin.days[+b.getAttribute('data-j')]; to.stops.push(st); scheduleRoute(dd); scheduleRoute(to); saveItin(); drawItin(); renderItin(); closeSheet(); toast('Moved to ' + dayLabel(to, +b.getAttribute('data-j'))); }
+    else if (act === 'stopto') { moveToDay(curDay, +b.getAttribute('data-i'), +b.getAttribute('data-j')); closeSheet(); }
     else if (act === 'visit' && sheet._point) { markVisited(sheet._point.f); showPoint(sheet._point.kind, sheet._point.f); }
     else if (act === 'unvisit') { removeVisit(b.getAttribute('data-id')); if (sheet._point) showPoint(sheet._point.kind, sheet._point.f); toast('Visit removed'); }
     else if (act === 'delvisit') { removeVisit(b.getAttribute('data-id')); showExport(); }
@@ -2915,8 +2921,11 @@ function goDay(i) {
   centerDay(true);
   var d = D.itin.days[curDay], w = waypoints(d); if (w.length) map.fitBounds(L.latLngBounds(w.map(function (p) { return [p.y, p.x]; })), { padding: [40, 40], maxZoom: 12 });
 }
+var renderHeld = false;
 function renderItin() {
   var el = $('itin'); if (el.hidden) return;
+  if (document.body.classList.contains('drag-stop')) { renderHeld = true; return; }
+  renderHeld = false;
   var I = D.itin, day = I.days[curDay], h = '';
   h += '<div class="itin-head"><input id="itinName" class="itin-name" type="text" placeholder="Trip name" value="' + esc(I.name || '') + '" aria-label="Trip name">' +
        '<button class="x" type="button" data-it="close" aria-label="Close itinerary">×</button></div>';
@@ -2943,7 +2952,7 @@ function renderItin() {
     }
     h += '<ol class="plan">';
     h += placeRow(day.start, 'start', clock(hm(day.depart)) ? 'Leave ' + clock(hm(day.depart)) : '', sc.zones > 1 ? zoneAbbr(day, day.start || {}) : '');
-    var wpIdx = day.start ? 1 : 0, GRIP = function (i, nm) { return '<button type="button" class="grip" data-grip="' + i + '" aria-label="Drag to reorder ' + esc(nm) + '. Arrow keys move it." title="Drag to reorder"><svg viewBox="0 0 12 20" aria-hidden="true"><circle cx="3" cy="4" r="1.6"/><circle cx="9" cy="4" r="1.6"/><circle cx="3" cy="10" r="1.6"/><circle cx="9" cy="10" r="1.6"/><circle cx="3" cy="16" r="1.6"/><circle cx="9" cy="16" r="1.6"/></svg></button>'; };
+    var wpIdx = day.start ? 1 : 0, GRIP = function (i, nm) { return '<button type="button" class="grip" data-grip="' + i + '" aria-label="Drag to reorder ' + esc(nm) + ', or onto a day to move it there. Arrow keys move it." title="Drag to reorder"><svg viewBox="0 0 12 20" aria-hidden="true"><circle cx="3" cy="4" r="1.6"/><circle cx="9" cy="4" r="1.6"/><circle cx="3" cy="10" r="1.6"/><circle cx="9" cy="10" r="1.6"/><circle cx="3" cy="16" r="1.6"/><circle cx="9" cy="16" r="1.6"/></svg></button>'; };
     day.stops.forEach(function (s, i) {
       var r = sc.stops[i];
       if (r.note) {
@@ -3035,8 +3044,12 @@ function editStop(i) {
         (gc ? '<p class="note">' + (cc && eff(cc) !== 1 ? 'Also marks ' + esc(fullName(cc)) + ' Found. ' : '') + 'The find itself reaches Pro from the iCaching CSV.</p>'
             : cache ? '<p class="note">A check mark for your plan only. Lab stops don\u2019t count toward county finds.</p>' : '');
     })() +
-    '<div class="row"><button class="btn" type="button" data-act="stopmove" data-i="' + i + '"' + (D.itin.days.length > 1 ? '' : ' disabled') + '>Move to another day</button>' +
-    '<button class="btn" type="button" data-act="stopdel" data-i="' + i + '">Remove</button></div>';
+    '<div class="kicker" style="margin-top:14px">This day</div>' +
+    '<div class="row two" style="margin-top:6px"><button class="btn" type="button" data-act="stopasend" data-i="' + i + '">End the day here</button>' +
+    '<button class="btn" type="button" data-act="stopasstart" data-i="' + i + '">Start the day here</button></div>' +
+    '<div class="row two"><button class="btn" type="button" data-act="stopnext" data-i="' + i + '">' + (curDay < D.itin.days.length - 1 ? 'Move to next day' : 'Move to a new next day') + '</button>' +
+    '<button class="btn" type="button" data-act="stopmove" data-i="' + i + '"' + (D.itin.days.length > 1 ? '' : ' disabled') + '>Move to another day\u2026</button></div>' +
+    '<div class="row"><button class="btn" type="button" data-act="stopdel" data-i="' + i + '">Remove</button></div>';
   sheet._point = null; openSheet(h);
   map.panTo([s.y, s.x]);
 }
@@ -3104,6 +3117,41 @@ function stopsGeoJSON() {
   });
   return JSON.stringify({ type: 'FeatureCollection', features: fs });
 }
+/* one stop from day a to day b (added at the end of day b's stops) */
+function moveToDay(a, i, b) {
+  var da = D.itin.days[a], db = D.itin.days[b]; if (!da || !db || a === b || !da.stops[i]) return false;
+  var st = da.stops.splice(i, 1)[0]; db.stops.push(st);
+  scheduleRoute(da); scheduleRoute(db); saveItin(); drawItin(); renderItin();
+  toast('Moved ' + (isNote(st) ? 'the note' : st.name) + ' to ' + dayLabel(db, b));
+  return true;
+}
+function samePlace(p, q) { return !!(p && q && Math.abs(p.x - q.x) < 1e-5 && Math.abs(p.y - q.y) < 1e-5); }
+/* a stop becomes the day's end (or start). The old end/start is dropped; the next day's start follows a new end
+   when it was the old end or empty. Stops after a new end can go to the next day in one tap. */
+function stopAsEnd(i, asEnd) {
+  var day = D.itin.days[curDay], s = day.stops[i]; if (!s || isNote(s)) return;
+  var p = JSON.parse(JSON.stringify(s)); ['stay', 'arrive', 'leave', 'done', 'dnf', 'skip', 'skipName', 'cty'].forEach(function (k) { delete p[k]; });
+  day.stops.splice(i, 1);
+  var old = asEnd ? day.end : day.start, msg;
+  if (asEnd) {
+    day.end = p;
+    var nx = D.itin.days[curDay + 1];
+    if (nx && (!nx.start || samePlace(nx.start, old))) nx.start = JSON.parse(JSON.stringify(p));
+    msg = s.name + ' is now the end of ' + dayLabel(day, curDay) + (old && !samePlace(old, p) ? ' (instead of ' + old.name + ')' : '');
+  } else {
+    day.start = p;
+    msg = s.name + ' is now the start of ' + dayLabel(day, curDay) + (old && !samePlace(old, p) ? ' (instead of ' + old.name + ')' : '');
+  }
+  saveItin(); scheduleRoute(day); if (asEnd && D.itin.days[curDay + 1]) scheduleRoute(D.itin.days[curDay + 1]); drawItin(); renderItin();
+  var after = asEnd ? day.stops.length - i : 0;
+  if (after > 0) {
+    var nd = D.itin.days[curDay + 1];
+    openSheet(head(dayLabel(day, curDay), 'Ends at ' + s.name) + '<p class="note">' + esc(msg) + '.</p>' +
+      '<p>' + after + (after === 1 ? ' stop is' : ' stops are') + ' still planned after it: ' + esc(day.stops.slice(i).filter(function (x) { return !isNote(x); }).map(function (x) { return x.name; }).join(', ')) + '.</p>' +
+      '<div class="row two"><button class="btn primary" type="button" data-act="restnext" data-i="' + i + '">Move ' + (after === 1 ? 'it' : 'them') + ' to ' + (nd ? esc(dayLabel(nd, curDay + 1)) : 'a new next day') + '</button>' +
+      '<button class="btn" type="button" data-act="close">Keep ' + (after === 1 ? 'it' : 'them') + ' on this day</button></div>');
+  } else { closeSheet(); toast(msg); }
+}
 function moveStop(from, to) {
   var day = D.itin.days[curDay]; if (!day || from === to || to < 0 || to >= day.stops.length) return false;
   day.stops.splice(to, 0, day.stops.splice(from, 1)[0]);
@@ -3123,12 +3171,29 @@ function startDrag(ev, grip) {
   var step = rows.length > 1 ? (i + 1 < rows.length ? rects[i + 1].top - rects[i].top : rects[i].top - rects[i - 1].top) : rects[i].height;
   var y0 = ev.clientY, to = i, panel = $('itin'), sc0 = panel.scrollTop, base = oldTop - rects[i].top;
   row.classList.add('lifted'); row.style.transform = 'translateY(' + base + 'px)';
+  var nav = panel.querySelector('.daynav'), dropDay = null, dropEl = null;
+  if (nav) nav.classList.add('droptargets');
+  var targetAt = function (x, y) {          // a day tab, the ‹ › arrows or + under the finger
+    if (!nav) return null;
+    var els = nav.querySelectorAll('[data-it="day"], [data-it="dgo"]:not([disabled]), [data-it="addday"]');
+    for (var k = 0; k < els.length; k++) {
+      var r = els[k].getBoundingClientRect();
+      if (x >= r.left - 4 && x <= r.right + 4 && y >= r.top - 6 && y <= r.bottom + 6) {
+        var it = els[k].getAttribute('data-it'), d = it === 'addday' ? 'new' : +els[k].getAttribute('data-i');
+        if (d !== curDay) return { d: d, el: els[k] };
+      }
+    }
+    return null;
+  };
   try { grip.setPointerCapture(ev.pointerId); } catch (e) {}
   var move = function (e) {
     var dy = base + e.clientY - y0 + (panel.scrollTop - sc0);
     var pr = panel.getBoundingClientRect();                // nudge the panel when dragging near its edges
     if (e.clientY < pr.top + 40) panel.scrollTop -= 8; else if (e.clientY > pr.bottom - 40) panel.scrollTop += 8;
     row.style.transform = 'translateY(' + dy + 'px)';
+    var tg = targetAt(e.clientX, e.clientY);
+    if ((tg && tg.el) !== dropEl) { if (dropEl) dropEl.classList.remove('dropon'); dropEl = tg ? tg.el : null; if (dropEl) dropEl.classList.add('dropon'); }
+    dropDay = tg ? tg.d : null;
     var c = rects[i].top + rects[i].height / 2 + dy; to = 0;
     rows.forEach(function (r, j) { if (j !== i && rects[j].top + rects[j].height / 2 < c) to++; });
     rows.forEach(function (r, j) {
@@ -3140,6 +3205,13 @@ function startDrag(ev, grip) {
   var end = function () {
     grip.removeEventListener('pointermove', move); grip.removeEventListener('pointerup', end); grip.removeEventListener('pointercancel', end);
     document.body.classList.remove('drag-stop');
+    if (nav) nav.classList.remove('droptargets');
+    if (dropDay !== null) {
+      var tgt = dropDay;
+      if (tgt === 'new') { var keep = curDay; addDay(); tgt = D.itin.days.length - 1; curDay = keep; }
+      if (!moveToDay(curDay, i, tgt)) renderItin();
+      return;
+    }
     if (to !== i && moveStop(i, to)) toast('Moved ' + D.itin.days[curDay].stops[to].name);
     renderItin();
   };
