@@ -727,10 +727,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
 .tally span { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }
 .tally .dot { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 5px; }
 
-.sheet { position: absolute; left: 0; right: 0; bottom: 0; z-index: 600; background: var(--panel); border-radius: 16px 16px 0 0; box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.25); padding: 14px 16px calc(16px + env(safe-area-inset-bottom, 0px)); max-height: 72%; overflow-y: auto; -webkit-overflow-scrolling: touch; transform: translateY(105%); transition: transform 0.18s ease-out; }
+.sheet { box-sizing: border-box; overflow-x: hidden; position: absolute; left: 0; right: 0; bottom: 0; z-index: 600; background: var(--panel); border-radius: 16px 16px 0 0; box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.25); padding: 14px 16px calc(16px + env(safe-area-inset-bottom, 0px)); max-height: 72%; overflow-y: auto; -webkit-overflow-scrolling: touch; transform: translateY(105%); transition: transform 0.18s ease-out; }
 .sheet.open { transform: none; }
 @media (prefers-reduced-motion: reduce) { .sheet { transition: none; } }
-.itin { position: absolute; left: 0; right: 0; bottom: 0; z-index: 550; background: var(--panel); border-radius: 16px 16px 0 0; box-shadow: 0 -4px 18px rgba(0,0,0,.25);
+.itin { box-sizing: border-box; position: absolute; left: 0; right: 0; bottom: 0; z-index: 550; background: var(--panel); border-radius: 16px 16px 0 0; box-shadow: 0 -4px 18px rgba(0,0,0,.25);
   max-height: min(78%, calc(100% - 282px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px))); overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 12px 16px calc(16px + env(safe-area-inset-bottom, 0px)); }
 @media (min-width: 900px) {
   .itin { top: 0; bottom: 0; right: auto; width: 420px; max-height: none; border-radius: 0; box-shadow: 2px 0 14px rgba(0,0,0,.18); padding-top: calc(12px + env(safe-area-inset-top, 0px)); }
@@ -739,6 +739,14 @@ svg.leaflet-image-layer.leaflet-interactive path {
   body.itin-open .sheet { left: 436px; }
 }
 .search { display: flex; gap: 8px; margin-top: 12px; }
+.row.links { justify-content: space-between; margin-top: 4px; }
+.stopsel { position: sticky; bottom: calc(-16px - env(safe-area-inset-bottom, 0px)); z-index: 4; background: var(--panel); margin: 8px -16px 0; padding: 10px 16px calc(14px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -8px 12px -8px rgba(0, 0, 0, 0.3); }
+.stopsel .selhead { display: flex; justify-content: space-between; align-items: baseline; }
+.selbtns3 { display: grid; grid-template-columns: 1.3fr 1fr 0.8fr; gap: 6px; margin-top: 8px; }
+.selbtns3 .btn { min-height: 42px; padding: 0 6px; }
+.selbtns3 .btn.quiet { border-color: transparent; color: var(--muted); }
+.plan .selbox { width: 24px; height: 24px; margin: 0 8px; accent-color: var(--itin); cursor: pointer; flex: none; }
+.plan li.stop.picked { background: color-mix(in srgb, var(--itin) 12%, transparent); }
 .search input { flex: 1; min-width: 0; font: inherit; font-size: 16px; color: var(--fg); background: var(--panel); border: 2px solid var(--line); border-radius: 10px; min-height: 44px; padding: 0 10px; }
 .results { list-style: none; margin: 8px 0 0; padding: 0; }
 .results li { display: flex; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); }
@@ -768,6 +776,7 @@ body.drag-stop .daynav { position: sticky; top: -1px; z-index: 6; background: va
 .dayrow { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
 .dayrow label, .form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); flex: 1 1 140px; }
 .form label { flex: none; }
+.form input, .form textarea, .form select { box-sizing: border-box; width: 100%; max-width: 100%; }
 .dayrow input, .form input, .form textarea, .ors input { font: inherit; font-size: 16px; color: var(--fg); background: var(--panel); border: 2px solid var(--line); border-radius: 10px; min-height: 44px; padding: 0 10px; }
 .form textarea { padding: 8px 10px; min-height: 70px; }
 .form { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
@@ -899,7 +908,8 @@ body.drag-stop, body.drag-stop * { -webkit-user-select: none !important; user-se
 .plan li.flash { animation: flash 1.6s ease-out; }
 @keyframes flash { 0%, 30% { background: color-mix(in srgb, var(--itin) 22%, transparent); } 100% { background: transparent; } }
 @media (prefers-reduced-motion: reduce) { .plan li.flash { animation: none; outline: 2px solid var(--itin); } }
-@media (min-width: 720px) { .sheet { left: 16px; right: auto; bottom: 16px; width: 380px; border-radius: 16px; } }
+@media (min-width: 720px) { .sheet { left: 16px; right: auto; bottom: 16px; width: 380px; border-radius: 16px; max-height: calc(100% - 32px); } }
+.sheet .savebar { position: sticky; bottom: calc(-16px - env(safe-area-inset-bottom, 0px)); z-index: 3; background: var(--panel); margin: 12px -16px 0; padding: 10px 16px calc(12px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -8px 10px -8px rgba(0, 0, 0, 0.25); }
 .sheet-head { display: flex; gap: 12px; align-items: flex-start; }
 .sheet-head > div { flex: 1; min-width: 0; }
 .kicker { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
@@ -1935,6 +1945,7 @@ function wire() {
     else if (act === 'stopnext') { var nd = curDay + 1; if (nd >= D.itin.days.length) { var keep = curDay; addDay(); curDay = keep; } moveToDay(curDay, +b.getAttribute('data-i'), nd); closeSheet(); }
     else if (act === 'restnext') { var rd = curDay + 1; if (rd >= D.itin.days.length) { var kp = curDay; addDay(); curDay = kp; } var rest = D.itin.days[curDay].stops.splice(+b.getAttribute('data-i')); var tgt = D.itin.days[rd]; tgt.stops = rest.concat(tgt.stops); scheduleRoute(D.itin.days[curDay]); scheduleRoute(tgt); saveItin(); drawItin(); renderItin(); closeSheet(); toast('Moved ' + rest.length + (rest.length === 1 ? ' stop' : ' stops') + ' to the start of ' + dayLabel(tgt, rd)); }
     else if (/^stop(save|up|down|del|move|visit|unvisit|dnf|back)$/.test(act)) stopAction(act, +b.getAttribute('data-i'));
+    else if (act === 'selto') { var sj = b.getAttribute('data-j'); moveSelected(sj === 'new' ? 'new' : +sj); }
     else if (act === 'stopto') { moveToDay(curDay, +b.getAttribute('data-i'), +b.getAttribute('data-j')); closeSheet(); }
     else if (act === 'visit' && sheet._point) { markVisited(sheet._point.f); showPoint(sheet._point.kind, sheet._point.f); }
     else if (act === 'unvisit') { removeVisit(b.getAttribute('data-id')); if (sheet._point) showPoint(sheet._point.kind, sheet._point.f); toast('Visit removed'); }
@@ -2363,7 +2374,7 @@ function renderResults() {
   });
   box.innerHTML = h + '</ul><p class="note">Add opens the place so you can check its type and choose stop, start or end.</p>';
 }
-var STAY = { 1: 60, 2: 120, 3: 0, 4: 45, 5: 60, 6: 30, 7: 180, 8: 15, 9: 20, cache: 15, lab: 20 };
+var STAY = { 1: 60, 2: 90, 3: 0, 4: 0, 5: 60, 6: 0, 7: 0, 8: 5, 9: 5, cache: 5, lab: 5 };   // minutes at a new stop, by type
 var curDay = 0, itinTimer = null, routing = {};
 function itin() { return D.itin; }
 function hm(s) { if (!s || !/^\d{1,2}:\d{2}$/.test(s)) return null; var p = s.split(':'); return +p[0] * 60 + +p[1]; }
@@ -2916,12 +2927,29 @@ function centerDay(smooth) {
 function goDay(i) {
   if (i < 0 || i >= D.itin.days.length) return;
   var keep = $('itin').querySelector('.daytabs'), sl = keep ? keep.scrollLeft : 0;
-  curDay = i; drawItin(); renderItin();
+  curDay = i; itinSel = null; drawItin(); renderItin();
   var row = $('itin').querySelector('.daytabs'); if (row) row.scrollLeft = sl;    // start where the row was, then glide to the day
   centerDay(true);
   var d = D.itin.days[curDay], w = waypoints(d); if (w.length) map.fitBounds(L.latLngBounds(w.map(function (p) { return [p.y, p.x]; })), { padding: [40, 40], maxZoom: 12 });
 }
-var renderHeld = false;
+var renderHeld = false, itinSel = null;          // itinSel: { stop index: 1 } while choosing several stops
+function showSelMove() {
+  var n = Object.keys(itinSel).length, h = head('Move ' + n + (n === 1 ? ' stop' : ' stops'), 'To which day?') + '<ul class="changes findres">';
+  D.itin.days.forEach(function (d, j) { if (j !== curDay) h += '<li><button class="link" type="button" data-act="selto" data-j="' + j + '">' + esc(dayLabel(d, j)) + '</button><span>' + d.stops.length + (d.stops.length === 1 ? ' stop' : ' stops') + '</span></li>'; });
+  h += '<li><button class="link" type="button" data-act="selto" data-j="new">A new day at the end</button><span></span></li></ul>' +
+    '<p class="note">They keep their order and go after that day’s stops.</p>';
+  sheet._point = null; openSheet(h);
+}
+function moveSelected(j) {
+  var day = D.itin.days[curDay]; if (!itinSel || !day) return;
+  if (j === 'new') { var keep = curDay; addDay(); j = D.itin.days.length - 1; curDay = keep; }
+  var to = D.itin.days[j], ks = Object.keys(itinSel).map(Number).sort(function (x, y) { return x - y; });
+  var moved = ks.map(function (k) { return day.stops[k]; }).filter(Boolean);
+  for (var q = ks.length - 1; q >= 0; q--) day.stops.splice(ks[q], 1);
+  to.stops = to.stops.concat(moved);
+  itinSel = null; scheduleRoute(day); scheduleRoute(to); saveItin(); drawItin(); renderItin(); closeSheet();
+  toast('Moved ' + moved.length + (moved.length === 1 ? ' stop' : ' stops') + ' to ' + dayLabel(to, j));
+}
 function renderItin() {
   var el = $('itin'); if (el.hidden) return;
   if (document.body.classList.contains('drag-stop')) { renderHeld = true; return; }
@@ -2931,10 +2959,11 @@ function renderItin() {
        '<button class="x" type="button" data-it="close" aria-label="Close itinerary">×</button></div>';
   h += viewTabs();
   if (itinView === 'book' || itinView === 'cost') { el.innerHTML = h + (itinView === 'book' ? renderBookings() : renderCosts()); return; }
-  h += '<div class="search"><input id="plSearch" type="search" placeholder="Search for a place to add" autocomplete="off" aria-label="Search for a place" value="' + esc(lastQuery) + '">' +
+  var SEARCH = '<div class="search"><input id="plSearch" type="search" placeholder="Search for a place to add" autocomplete="off" aria-label="Search for a place" value="' + esc(lastQuery) + '">' +
        '<button class="btn" type="button" data-it="search">Search</button>' +
        '<button class="btn pin" type="button" data-it="pincenter" aria-label="Drop a pin at the map centre" title="Drop a pin at the map centre"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 0 0-7 7c0 5.2 7 13 7 13s7-7.8 7-13a7 7 0 0 0-7-7zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5z"/></svg></button></div><div id="plResults"></div>';
   h += dayNav(I);
+  if (!day) h += SEARCH;
   if (day) {
     var sc = schedule(day), totMi = 0, totMin = 0;
     if (day.route && day.route.key === wkey(day)) day.route.legs.forEach(function (l) { totMi += l.mi; totMin += l.min; });
@@ -2952,18 +2981,19 @@ function renderItin() {
     }
     h += '<ol class="plan">';
     h += placeRow(day.start, 'start', clock(hm(day.depart)) ? 'Leave ' + clock(hm(day.depart)) : '', sc.zones > 1 ? zoneAbbr(day, day.start || {}) : '');
+    var EDIT = itinSel ? 'seltog' : 'edit', BOX = function (i, nm) { return '<input type="checkbox" class="selbox" data-it="seltog" data-i="' + i + '"' + (itinSel[i] ? ' checked' : '') + ' aria-label="Select ' + esc(nm) + '">'; };
     var wpIdx = day.start ? 1 : 0, GRIP = function (i, nm) { return '<button type="button" class="grip" data-grip="' + i + '" aria-label="Drag to reorder ' + esc(nm) + ', or onto a day to move it there. Arrow keys move it." title="Drag to reorder"><svg viewBox="0 0 12 20" aria-hidden="true"><circle cx="3" cy="4" r="1.6"/><circle cx="9" cy="4" r="1.6"/><circle cx="3" cy="10" r="1.6"/><circle cx="9" cy="10" r="1.6"/><circle cx="3" cy="16" r="1.6"/><circle cx="9" cy="16" r="1.6"/></svg></button>'; };
     day.stops.forEach(function (s, i) {
       var r = sc.stops[i];
       if (r.note) {
-        h += '<li class="stop note"><div class="when"><span class="kicker">Note</span></div><div class="what" data-it="edit" data-i="' + i + '" role="button" tabindex="0" aria-label="Edit note"><div class="notetext">' + esc(s.text || '') + '</div></div>' +
-          '<div class="acts">' + (day.stops.length > 1 ? GRIP(i, 'note') : '') + '</div></li>';
+        h += '<li class="stop note' + (itinSel && itinSel[i] ? ' picked' : '') + '"><div class="when"><span class="kicker">Note</span></div><div class="what" data-it="' + EDIT + '" data-i="' + i + '" role="button" tabindex="0" aria-label="Edit note"><div class="notetext">' + esc(s.text || '') + '</div></div>' +
+          '<div class="acts">' + (itinSel ? BOX(i, 'note') : day.stops.length > 1 ? GRIP(i, 'note') : '') + '</div></li>';
         return;
       }
       if (r.off) {
         var why = s.dnf ? (s.stop === 9 || s.kind === 'labs' ? 'Skipped' : 'Didn\u2019t find') : 'Backup not needed' + (s.skipName ? ' \u00b7 found ' + s.skipName : '');
-        h += '<li class="stop off"><div class="when"><span class="kicker">' + (s.dnf && s.stop !== 9 && s.kind !== 'labs' ? 'DNF' : 'Skipped') + '</span></div><div class="what" data-it="edit" data-i="' + i + '" role="button" tabindex="0" aria-label="' + esc(s.name + ', ' + why) + '"><b>' +
-          (STOPS[stopType(s)] ? '<i class="ic">' + STOPS[stopType(s)][1] + '</i>' : '') + esc(s.name) + '</b><div class="pnote">' + esc(why) + '</div></div><div class="acts">' + (day.stops.length > 1 ? GRIP(i, s.name) : '') + '</div></li>';
+        h += '<li class="stop off' + (itinSel && itinSel[i] ? ' picked' : '') + '"><div class="when"><span class="kicker">' + (s.dnf && s.stop !== 9 && s.kind !== 'labs' ? 'DNF' : 'Skipped') + '</span></div><div class="what" data-it="' + EDIT + '" data-i="' + i + '" role="button" tabindex="0" aria-label="' + esc(s.name + ', ' + why) + '"><b>' +
+          (STOPS[stopType(s)] ? '<i class="ic">' + STOPS[stopType(s)][1] + '</i>' : '') + esc(s.name) + '</b><div class="pnote">' + esc(why) + '</div></div><div class="acts">' + (itinSel ? BOX(i, s.name) : day.stops.length > 1 ? GRIP(i, s.name) : '') + '</div></li>';
         return;
       }
       if (r.leg || (wpIdx > 0)) h += legRow(r.leg, day, wpIdx, s);
@@ -2971,18 +3001,28 @@ function renderItin() {
       wpIdx++;
       var sunW = sunWarn(day, s, r);
       var zl = sc.zones > 1 && r.arrive != null ? '<span class="tz">' + esc(zoneAbbr(day, s)) + '</span>' : '';
-      h += '<li class="stop' + (r.late ? ' late' : '') + (stopDone(s) ? ' isdone' : '') + '"><div class="when">' + (r.arrive != null ? clock(r.arrive) : '') + (r.leave != null && r.leave !== r.arrive ? '<br><span>' + clock(r.leave) + '</span>' : '') + zl + '</div>' +
-        '<div class="what" data-it="edit" data-i="' + i + '" role="button" tabindex="0" aria-label="Edit ' + esc(s.name) + '"><b><span class="wpn" title="Stop ' + lbl + ' on the map">' + lbl + '</span>' + (STOPS[stopType(s)] ? '<i class="ic">' + STOPS[stopType(s)][1] + '</i>' : '') + esc(s.name) + (stopDone(s) ? '<span class="done" title="' + (isCacheStop(s) ? 'Found' : 'Visited') + '">\u2713</span>' : '') + '</b>' +
+      h += '<li class="stop' + (r.late ? ' late' : '') + (stopDone(s) ? ' isdone' : '') + (itinSel && itinSel[i] ? ' picked' : '') + '"><div class="when">' + (r.arrive != null ? clock(r.arrive) : '') + (r.leave != null && r.leave !== r.arrive ? '<br><span>' + clock(r.leave) + '</span>' : '') + zl + '</div>' +
+        '<div class="what" data-it="' + EDIT + '" data-i="' + i + '" role="button" tabindex="0" aria-label="' + (itinSel ? 'Select ' : 'Edit ') + esc(s.name) + '"><b><span class="wpn" title="Stop ' + lbl + ' on the map">' + lbl + '</span>' + (STOPS[stopType(s)] ? '<i class="ic">' + STOPS[stopType(s)][1] + '</i>' : '') + esc(s.name) + (stopDone(s) ? '<span class="done" title="' + (isCacheStop(s) ? 'Found' : 'Visited') + '">\u2713</span>' : '') + '</b>' +
         (r.late ? '<div class="warn">Arrives ' + clock(r.eta) + ', ' + dur(r.late) + ' after the ' + clock(hm(s.arrive)) + ' plan</div>' : '') +
         stopWx(day, s, r.arrive) + (r.short ? '<div class="warn">Less than 5 minutes here</div>' : '') + (sunW ? '<div class="warn">' + esc(sunW) + '</div>' : '') +
         (s.hours ? '<div class="pnote">Hours: ' + esc(s.hours) + '</div>' : '') + (s.notes ? '<div class="pnote">' + esc(s.notes) + '</div>' : '') + '</div>' +
-        '<div class="acts">' + navLink(s, modeOf(s), 'nav') +
-        (day.stops.length > 1 ? GRIP(i, s.name) : '') + '</div></li>';
+        '<div class="acts">' + (itinSel ? BOX(i, s.name) : navLink(s, modeOf(s), 'nav') + (day.stops.length > 1 ? GRIP(i, s.name) : '')) + '</div></li>';
     });
     if (day.end && wpIdx > 0) h += legRow(sc.endLeg, day, wpIdx, day.end);
     h += placeRow(day.end, 'end', sc.end != null && day.end ? 'Arrive ' + clock(sc.end) : '', sc.zones > 1 && day.end ? zoneAbbr(day, day.end) : '');
     h += '</ol>';
-    h += '<button class="link small" type="button" data-it="addnote">+ Add a note</button>';
+    if (itinSel) {
+      var nsel = Object.keys(itinSel).length;
+      h += '<div class="stopsel" role="region" aria-label="Selected stops"><div class="selhead"><b>' + nsel + (nsel === 1 ? ' stop selected' : ' stops selected') + '</b>' +
+        '<button class="link small" type="button" data-it="selall">' + (nsel === day.stops.length ? 'Select none' : 'Select all') + '</button></div>' +
+        '<div class="selbtns3"><button class="btn primary" type="button" data-it="selmove"' + (nsel ? '' : ' disabled') + '>Move to\u2026</button>' +
+        '<button class="btn" type="button" data-it="seldel"' + (nsel ? '' : ' disabled') + '>Remove</button>' +
+        '<button class="btn quiet" type="button" data-it="selcancel">Done</button></div></div>';
+    } else {
+      h += SEARCH;
+      h += '<div class="row tight links"><button class="link small" type="button" data-it="addnote">+ Add a note</button>' +
+        (day.stops.length > 1 ? '<button class="link small" type="button" data-it="selstart">Select stops</button>' : '') + '</div>';
+    }
     if (!day.stops.length && !day.start) h += '<p class="note">Tap a lodging, brewery, cache or any place on the map, then use Start day, Add stop or End day in its pop-up.</p>';
     h += '<div class="daytot">' + (totMi ? Math.round(totMi) + ' mi · ' + dur(totMin) + ' travelling' : '') + (day.route && day.route.src === 'est' && day.route.key === wkey(day) ? ' <span class="est">estimate</span>' + (day.route.why === 'nokey' ? '<div class="pnote">Dotted lines are straight-line estimates. Add the drive-times key on this device below for road routes.</div>' : '') : '') +
       (routing[day.id] ? ' <span class="est">updating…</span>' : '') + '</div>';
@@ -3032,7 +3072,7 @@ function editStop(i) {
     '<label>Leave by (fixed, optional) <input id="sLeave" type="time" value="' + esc(s.leave || '') + '"></label>' +
     '<label>Open hours <input id="sHours" type="text" placeholder="e.g. 12–9 PM, closed Mon" value="' + esc(s.hours || '') + '"></label>' +
     '<label>Notes <textarea id="sNotes" rows="3">' + esc(s.notes || '') + '</textarea></label></div>' +
-    '<div class="row"><button class="btn primary" type="button" data-act="stopsave" data-i="' + i + '">Save</button>' + navLink(s, modeOf(s)) +
+    '<div class="row savebar"><button class="btn primary" type="button" data-act="stopsave" data-i="' + i + '">Save</button>' + navLink(s, modeOf(s)) +
     '</div>' + (function () {
       var cache = isCacheStop(s), v = stopVisits(s)[0];
       var gc = isGeocacheStop(s), cc = gc ? countyAt(s.y, s.x) : null;
@@ -3222,10 +3262,21 @@ function wireItin() {
   el.addEventListener('click', function (ev) {
     var b = ev.target.closest('[data-it]'); if (!b) return;
     var a = b.getAttribute('data-it'), day = D.itin.days[curDay];
+    if (a === 'seltog' && b.tagName === 'INPUT') ev.preventDefault();
     if (a === 'close') closeItin();
     else if (a === 'day' || a === 'dgo') goDay(+b.getAttribute('data-i'));
     else if (a === 'addday') { addDay(); curDay = D.itin.days.length - 1; drawItin(); renderItin(); toast('Added ' + dayLabel(D.itin.days[curDay], curDay)); }
     else if (a === 'edit') editStop(+b.getAttribute('data-i'));
+    else if (a === 'selstart') { itinSel = {}; closeSheet(); renderItin(); }
+    else if (a === 'selcancel') { itinSel = null; renderItin(); }
+    else if (a === 'seltog' && itinSel) { var si = +b.getAttribute('data-i'); if (itinSel[si]) delete itinSel[si]; else itinSel[si] = 1; var keepTop = $('itin').scrollTop; renderItin(); $('itin').scrollTop = keepTop; }
+    else if (a === 'selall' && itinSel && day) { if (Object.keys(itinSel).length === day.stops.length) itinSel = {}; else day.stops.forEach(function (x, k) { itinSel[k] = 1; }); var kt = $('itin').scrollTop; renderItin(); $('itin').scrollTop = kt; }
+    else if (a === 'selmove' && itinSel) showSelMove();
+    else if (a === 'seldel' && itinSel && day) {
+      if (b.getAttribute('data-sure') !== '1') { b.setAttribute('data-sure', '1'); b.textContent = 'Tap again'; return; }
+      var ks = Object.keys(itinSel).map(Number).sort(function (x, y) { return y - x; }); ks.forEach(function (k) { day.stops.splice(k, 1); });
+      itinSel = null; saveItin(); scheduleRoute(day); drawItin(); renderItin(); toast('Removed ' + ks.length + (ks.length === 1 ? ' stop' : ' stops'));
+    }
     else if (a === 'view') { itinView = b.getAttribute('data-v'); store.set('itinView', itinView); renderItin(); }
     else if (a === 'booknew') bookForm({ type: b.getAttribute('data-t') });
     else if (a === 'bookedit') { var bk = costs().bookings.filter(function (x) { return String(x.id) === b.getAttribute('data-id'); })[0]; if (bk) bookForm(bk); }
