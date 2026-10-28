@@ -2423,7 +2423,7 @@ function schedule(day) {
   // The day is walked on one clock (the first place's), and every time is handed back in each place's own local time,
   // so a day that crosses a time zone line shows the clocks you will see. Fixed times typed for a stop are its local time.
   var out = { stops: [], end: null }, legs = day.route && day.route.key === wkey(day) ? day.route.legs : null;
-  var w = waypoints(day), base = w.length ? zoneOff(day, w[0]) : 0, dz = function (p) { return p ? zoneOff(day, p) - base : 0; };
+  var w = waypoints(day), base = w.length ? zoneOff(day, w[0]) : 0, dz = function (p) { var o = p ? zoneOff(day, p) : null; return o == null || base == null ? 0 : o - base; };
   var li = 0, t = hm(day.depart), seen = !!day.start;
   if (day.start == null) t = null;
   var legAt = function () { var l = legs ? legs[li] : null; li++; return l; };
@@ -2445,9 +2445,17 @@ function schedule(day) {
   return out;
 }
 /* time zone offsets: minutes ahead of UTC for a place on the day's date (DST included) */
-var offCache = {};
+var offCache = {}, tzNear = {};
+function tzOf(day, p) {
+  if (!p) return null;
+  var k = tzKey(p); if (TZ[k]) return TZ[k];
+  if (tzNear[k] !== undefined) return tzNear[k];
+  var best = null, bd = 4;                                       // within about 4 degrees
+  Object.keys(TZ).forEach(function (q) { var c = q.split(','), d = Math.abs(+c[0] - p.y) + Math.abs(+c[1] - p.x) * Math.cos(p.y * Math.PI / 180); if (d < bd) { bd = d; best = TZ[q]; } });
+  return (tzNear[k] = best);
+}
 function zoneOff(day, p) {
-  var tz = TZ[tzKey(p)]; if (!tz) return 0;
+  var tz = tzOf(day, p); if (!tz) return null;
   var date = day.date || todayIso(), k = tz + '|' + date;
   if (offCache[k] != null) return offCache[k];
   var off = 0;
@@ -2460,10 +2468,10 @@ function zoneOff(day, p) {
   return (offCache[k] = off);
 }
 function zoneAbbr(day, p) {
-  var tz = TZ[tzKey(p)]; if (!tz) return '';
+  var tz = tzOf(day, p); if (!tz) return '';
   try { var q = (day.date || todayIso()).split('-'), x = new Intl.DateTimeFormat('en-US', { timeZone: tz, timeZoneName: 'short' }).formatToParts(new Date(Date.UTC(+q[0], +q[1] - 1, +q[2], 17))).filter(function (y) { return y.type === 'timeZoneName'; })[0]; return x ? x.value : ''; } catch (e) { return ''; }
 }
-function zoneSet(day) { var z = {}; waypoints(day).forEach(function (p) { var o = zoneOff(day, p); if (TZ[tzKey(p)]) z[o] = 1; }); return Object.keys(z).length; }
+function zoneSet(day) { var z = {}; waypoints(day).forEach(function (p) { var o = zoneOff(day, p); if (o != null) z[o] = 1; }); return Object.keys(z).length; }
 
 /* ---------- routing ---------- */
 function orsKey() { return store.get('orsKey', ''); }
@@ -2516,7 +2524,7 @@ function minutesIn(msUtc, tz) {                                // minutes after 
 function sunAt(date, p) {
   if (!date || !p) return null;
   var u = sunUtc(date, p.y, p.x); if (!u) return null;
-  var tz = TZ[tzKey(p)] || null;
+  var tz = tzOf(null, p) || null;
   return { rise: minutesIn(u.rise, tz), set: minutesIn(u.set, tz), tz: tz };
 }
 var DARK_KINDS = { caches: 1, labs: 1 };
@@ -2545,8 +2553,8 @@ function wantWx(day) {                                          // fetch the for
   var ahead = daysAhead(day.date), key = day.date + ':' + wkey(day);
   if (wxBusy[key] || (wxFail[key] && Date.now() - wxFail[key] < 10 * 60e3)) return;
   var fc = !day.noForecast && ahead >= 0 && ahead <= 15, uniq = {}, list = [];
-  pts.forEach(function (p) { var k = wxKey(day.date, p); if (!uniq[k] && list.length < 12) { uniq[k] = 1; list.push(p); } });
-  var need = fc ? list.filter(function (p) { return !wxFor(day.date, p) || !TZ[tzKey(p)]; }) : list.filter(function (p) { return !TZ[tzKey(p)]; }).slice(0, 8);
+  pts.forEach(function (p) { var k = wxKey(day.date, p); if (!uniq[k] && list.length < 60) { uniq[k] = 1; list.push(p); } });
+  var need = fc ? list.filter(function (p) { return !wxFor(day.date, p) || !TZ[tzKey(p)]; }) : list.filter(function (p) { return !TZ[tzKey(p)]; });
   if (!need.length) return;
   var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + need.map(function (p) { return p.y.toFixed(3); }).join(',') + '&longitude=' + need.map(function (p) { return p.x.toFixed(3); }).join(',') + '&timezone=auto' +
     (fc ? '&temperature_unit=fahrenheit&hourly=temperature_2m,precipitation_probability,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&start_date=' + day.date + '&end_date=' + day.date
@@ -2561,7 +2569,7 @@ function wantWx(day) {                                          // fetch the for
         d: { hi: o.daily.temperature_2m_max[0], lo: o.daily.temperature_2m_min[0], p: o.daily.precipitation_probability_max[0], c: o.daily.weather_code[0] } };
     });
     store.set('tz2', TZ); wxPrune(); delete wxBusy[key]; wxFail[key] = Date.now();
-    offCache = {};
+    offCache = {}; tzNear = {};
     if (!$('itin').hidden && itinView === 'plan') { renderItin(); drawItin(); }
   }).catch(function () { delete wxBusy[key]; wxFail[key] = Date.now(); });
 }
@@ -3048,7 +3056,7 @@ function placeRow(p, which, when, zone) {
     '<div class="acts">' + (which === 'end' ? navLink(p, modeOf(p), 'nav') : '') + '<button type="button" data-it="clear' + which + '" aria-label="Remove ' + which + '">×</button></div></li>';
 }
 function legRow(leg, day, j, dest) {
-  var m = modeOf(dest), note = leg ? legNote(leg) : '', prev = waypoints(day)[j - 1], jump = prev ? zoneOff(day, dest) - zoneOff(day, prev) : 0;
+  var m = modeOf(dest), note = leg ? legNote(leg) : '', prev = waypoints(day)[j - 1], zd = zoneOff(day, dest), zp = prev ? zoneOff(day, prev) : null, jump = zd != null && zp != null ? zd - zp : 0;
   var sel = '<select class="mode" data-mode="' + j + '" aria-label="How you get to ' + esc(dest.name) + '">' + Object.keys(MODES).map(function (k) { return '<option value="' + k + '"' + (k === m ? ' selected' : '') + '>' + MODES[k].name + '</option>'; }).join('') + '</select>';
   return '<li class="leg"><div class="when"></div><div class="what">' + sel + (leg ? ' ' + (leg.mi < 10 ? leg.mi.toFixed(1) : Math.round(leg.mi)) + ' mi · ' + dur(leg.min) : '') + (note ? '<div class="nf">' + esc(note) + '</div>' : '') +
     (jump ? '<div class="tzjump">Into ' + esc(zoneAbbr(day, dest)) + ': clocks go ' + (jump > 0 ? 'ahead ' : 'back ') + dur(Math.abs(jump)).replace(/ $/, '') + '</div>' : '') + '</div></li>';
