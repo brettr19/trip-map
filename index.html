@@ -757,6 +757,17 @@ svg.leaflet-image-layer.leaflet-interactive path {
 .results .btn { min-height: 40px; }
 .form select { font: inherit; font-size: 16px; color: var(--fg); background: var(--panel); border: 2px solid var(--line); border-radius: 10px; min-height: 44px; padding: 0 8px; }
 .itin-head { display: flex; gap: 10px; align-items: center; }
+.tripsbtn { flex: none; min-height: 40px; padding: 0 12px; display: inline-flex; align-items: center; gap: 6px; }
+.tripsbtn .tcount { min-width: 20px; height: 20px; border-radius: 10px; background: var(--itin); color: #fff; font-size: 12px; font-weight: 700; display: inline-grid; place-items: center; padding: 0 5px; box-sizing: border-box; }
+ul.trips { list-style: none; margin: 10px 0 12px; padding: 0; }
+ul.trips li { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+ul.trips li.open { background: color-mix(in srgb, var(--itin) 8%, transparent); margin: 0 -10px; padding: 10px; border-radius: 10px; border-bottom: 0; }
+ul.trips .tmain { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+ul.trips .tmain button.link { font-weight: 700; text-decoration: none; color: var(--fg); text-align: left; padding: 0; }
+ul.trips .tmain small { flex-basis: 100%; color: var(--muted); }
+ul.trips .tbadge { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--itin); }
+.x.small { width: 32px; height: 32px; font-size: 16px; }
+.x.small.sure { width: auto; padding: 0 10px; border-radius: 16px; background: #c62828; color: #fff; font-size: 13px; font-weight: 700; }
 .itin-name { flex: 1; min-width: 0; font: inherit; font-size: 20px; font-weight: 700; border: 0; border-bottom: 2px solid var(--line); background: none; color: var(--fg); padding: 6px 0; }
 .dayhead { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-top: 12px; font-size: 14px; }
 .dayhead span { color: var(--muted); }
@@ -1945,6 +1956,11 @@ function wire() {
     else if (act === 'stopnext') { var nd = curDay + 1; if (nd >= D.itin.days.length) { var keep = curDay; addDay(); curDay = keep; } moveToDay(curDay, +b.getAttribute('data-i'), nd); closeSheet(); }
     else if (act === 'restnext') { var rd = curDay + 1; if (rd >= D.itin.days.length) { var kp = curDay; addDay(); curDay = kp; } var rest = D.itin.days[curDay].stops.splice(+b.getAttribute('data-i')); var tgt = D.itin.days[rd]; tgt.stops = rest.concat(tgt.stops); scheduleRoute(D.itin.days[curDay]); scheduleRoute(tgt); saveItin(); drawItin(); renderItin(); closeSheet(); toast('Moved ' + rest.length + (rest.length === 1 ? ' stop' : ' stops') + ' to the start of ' + dayLabel(tgt, rd)); }
     else if (/^stop(save|up|down|del|move|visit|unvisit|dnf|back)$/.test(act)) stopAction(act, +b.getAttribute('data-i'));
+    else if (act === 'tripopen') switchTrip(b.getAttribute('data-id'));
+    else if (act === 'tripnew') newTrip();
+    else if (act === 'tripdup') dupTrip();
+    else if (act === 'tripdel') { if (!b.classList.contains('sure')) { b.classList.add('sure'); b.textContent = 'Delete?'; return; } deleteTrip(b.getAttribute('data-id')); }
+    else if (act === 'impnew' || act === 'imprep') finishImport(sheet._imp, act === 'impnew');
     else if (act === 'selto') { var sj = b.getAttribute('data-j'); moveSelected(sj === 'new' ? 'new' : +sj); }
     else if (act === 'stopto') { moveToDay(curDay, +b.getAttribute('data-i'), +b.getAttribute('data-j')); closeSheet(); }
     else if (act === 'visit' && sheet._point) { markVisited(sheet._point.f); showPoint(sheet._point.kind, sheet._point.f); }
@@ -2081,7 +2097,7 @@ function wire() {
 
 /* ---------- data on this phone ---------- */
 var HKEYS = ['hroutes', 'htrails', 'hfound', 'hbrew', 'huntappd', 'hguster', 'hhikes', 'hparks'];
-var LAYERS = ['counties', 'caches', 'labs', 'pois', 'route', 'status', 'built', 'itinerary', 'brews'].concat(HKEYS);
+var LAYERS = ['counties', 'caches', 'labs', 'pois', 'route', 'status', 'built', 'itinerary', 'brews', 'otherTrips'].concat(HKEYS);
 function idb() {
   return new Promise(function (res, rej) {
     var q = indexedDB.open('tpm', 1);
@@ -2151,20 +2167,48 @@ function importFile(file) {
     if (j && j.geocations === 'backup') { showRestore(j); return; }
     if (j && j.type === 'FeatureCollection') put = fromGeoJSON(j);
     else if (j && typeof j === 'object') LAYERS.forEach(function (k) {
-      if (j[k] == null || k === 'route') return;                        // the planned route from Pro is retired
+      if (j[k] == null || k === 'route' || k === 'otherTrips') return;  // the planned route from Pro is retired; other trips only come from a backup
       if ((k === 'caches' || k === 'labs' || k === 'pois') && Array.isArray(j[k]) && !j[k].length) return;   // an older file's empty planning layer never clears the phone's plan
       put[k] = j[k];
     });
     var got = Object.keys(put).filter(function (k) { return NAMES[k]; });
     if (!got.length) throw new Error('No map layers were found in that file.');
-    if (!put.built) put.built = new Date().toISOString().slice(0, 10);
-    return idbPut(put).then(function () {
-      var msg = got.map(function (k) { if (k === 'itinerary') { var nd = (put[k].days || []).length; return 'the itinerary (' + nd + (nd === 1 ? ' day)' : ' days)'); } var n = Array.isArray(put[k]) ? put[k].length : Object.keys(put[k]).length; return n.toLocaleString() + ' ' + NAMES[k]; }).join(', ');
-      store.set('flash', 'Loaded ' + msg); location.reload();
-    });
+    if (put.itinerary && put.itinerary.days && tripHasContent(D.itin) && put.itinerary.id !== D.itin.id) {
+      var fi = put.itinerary, sp = tripSpan(fi), known = fi.id && D.others.some(function (t) { return t.id === fi.id; });
+      sheet._imp = { put: put, got: got };
+      openSheet(head('Itinerary file', fi.name || 'A trip') + '<p>' + esc(sp.text) + '</p>' +
+        '<p class="note">' + (known ? 'This trip is already on this phone; adding it replaces that copy with the one in the file.' : 'You have “' + esc(D.itin.name || 'Untitled trip') + '” open.') + '</p>' +
+        '<div class="row two"><button class="btn primary" type="button" data-act="impnew">' + (known ? 'Update that trip' : 'Add as a new trip') + '</button>' +
+        '<button class="btn" type="button" data-act="imprep">Replace “' + esc(D.itin.name || 'Untitled trip') + '”</button></div>');
+      return;
+    }
+    return finishImport({ put: put, got: got }, false);
   }).catch(function (err) {
     toast(err instanceof SyntaxError ? 'That file is not valid JSON or GeoJSON.' : (err && err.message) || 'The file could not be loaded.');
   });
+}
+function finishImport(imp, asNew) {
+  if (!imp) return;
+  var put = imp.put, got = imp.got;
+  if (put.itinerary && put.itinerary.days) {
+    if (!put.itinerary.id) put.itinerary.id = newTripId();
+    if (asNew) {
+      D.itin.curDay = curDay;
+      var others = D.others.filter(function (t) { return t.id !== put.itinerary.id; });
+      if (tripHasContent(D.itin)) others.push(cleanTrip(D.itin));
+      put.otherTrips = others;
+    } else if (D.others.some(function (t) { return t.id === put.itinerary.id; })) {
+      put.otherTrips = D.others.filter(function (t) { return t.id !== put.itinerary.id; });   // never the same trip twice
+    }
+  }
+  if (!put.built) put.built = new Date().toISOString().slice(0, 10);
+  closeSheet();
+  {
+    return idbPut(put).then(function () {
+      var msg = got.map(function (k) { if (k === 'itinerary') { var nd = (put[k].days || []).length; return 'the itinerary (' + nd + (nd === 1 ? ' day)' : ' days)'); } var n = Array.isArray(put[k]) ? put[k].length : Object.keys(put[k]).length; return n.toLocaleString() + ' ' + NAMES[k]; }).join(', ');
+      store.set('flash', 'Loaded ' + msg); location.reload();
+    }).catch(function () { toast('The file could not be saved on this device.'); });
+  }
 }
 /* ---------- planning data straight into the app: caches (iCaching CSV, Pocket Query GPX) and lab stops (Lab2Gpx GPX) ---------- */
 function parseCSV(text) {
@@ -2389,6 +2433,61 @@ function dayLabel(d, i) {
   if (!d.date) return 'Day ' + (i + 1);
   var p = d.date.split('-'), t = new Date(+p[0], +p[1] - 1, +p[2]);
   return t.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+}
+function newTripId() { return 't' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36); }
+function tripHasContent(I) { return !!(I && ((I.name && I.name.trim()) || (I.bookings || []).length || (I.expenses || []).length || (I.days || []).some(function (d) { return d.start || d.end || (d.stops || []).length; }))); }
+function tripSpan(I) {
+  var ds = (I.days || []).map(function (d) { return d.date; }).filter(Boolean).sort(), n = (I.days || []).length;
+  var st = (I.days || []).reduce(function (a, d) { return a + (d.stops || []).filter(function (x) { return !isNote(x); }).length; }, 0);
+  var f = function (d) { var p = d.split('-'); return new Date(+p[0], +p[1] - 1, +p[2]).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }); };
+  return { first: ds[0] || '', text: (ds.length ? f(ds[0]) + (ds.length > 1 && ds[ds.length - 1] !== ds[0] ? ' – ' + f(ds[ds.length - 1]) : '') + ' · ' : '') + n + (n === 1 ? ' day' : ' days') + ' · ' + st + (st === 1 ? ' stop' : ' stops') };
+}
+function cleanTrip(I) { var c = JSON.parse(JSON.stringify(I)); (c.days || []).forEach(function (d) { delete d._rt; }); return c; }
+/* the open trip goes to the list, another becomes the open one; both are written at once */
+function putTrips() { D.itin.curDay = curDay; return idbPut({ itinerary: D.itin, otherTrips: D.others }).catch(function () { toast('The trips could not be saved on this device.'); }); }
+function openTrip(next, msg) {
+  D.itin.curDay = curDay;
+  if (tripHasContent(D.itin)) D.others.push(D.itin);
+  D.itin = next; fixCacheStops(D.itin);
+  if (!D.itin.days.length) { curDay = 0; addDay(); }
+  curDay = Math.min(D.itin.curDay || 0, Math.max(0, D.itin.days.length - 1));
+  itinSel = null; putTrips(); closeSheet(); drawItin(); renderItin();
+  var w = []; D.itin.days.forEach(function (d) { waypoints(d).forEach(function (p) { w.push([p.y, p.x]); }); });
+  if (w.length) map.fitBounds(L.latLngBounds(w), { padding: [40, 40], maxZoom: 11 });
+  if (msg) toast(msg);
+}
+function switchTrip(id) {
+  var i = D.others.findIndex(function (t) { return t.id === id; }); if (i < 0) return;
+  var next = D.others.splice(i, 1)[0]; openTrip(next, 'Opened ' + (next.name || 'the trip'));
+}
+function newTrip() { openTrip({ id: newTripId(), name: '', days: [] }, 'New trip started. Give it a name at the top.'); }
+function dupTrip() {
+  var c = cleanTrip(D.itin); c.id = newTripId(); c.name = (D.itin.name || 'Trip') + ' (copy)'; c.expenses = []; c.curDay = 0;
+  c.days.forEach(function (d) { d.id = Date.now() + Math.floor(Math.random() * 1e6); (d.stops || []).forEach(function (x) { ['done', 'dnf', 'skip', 'skipName', 'cty'].forEach(function (k) { delete x[k]; }); }); });
+  openTrip(c, 'Copied as “' + c.name + '”. Change the name and dates as you like.');
+}
+function deleteTrip(id) {
+  if (id === D.itin.id) {
+    var nm = D.itin.name || 'the trip';
+    var next = D.others.length ? D.others.pop() : { id: newTripId(), name: '', days: [] };
+    D.itin = { id: 'gone', days: [] };                     // nothing to keep
+    openTrip(next, 'Deleted ' + nm);
+  } else {
+    var i = D.others.findIndex(function (t) { return t.id === id; }); if (i < 0) return;
+    var t = D.others.splice(i, 1)[0]; putTrips(); showTrips(); toast('Deleted ' + (t.name || 'the trip'));
+  }
+}
+function showTrips() {
+  var list = D.others.slice().sort(function (a, b) { var x = tripSpan(a).first, y = tripSpan(b).first; return (x || '9999') < (y || '9999') ? -1 : (x || '9999') > (y || '9999') ? 1 : 0; });
+  var li = function (t, open) {
+    return '<li class="trip' + (open ? ' open' : '') + '"><div class="tmain">' + (open ? '<b>' + esc(t.name || 'Untitled trip') + '</b><span class="tbadge">Open</span>' : '<button class="link" type="button" data-act="tripopen" data-id="' + esc(t.id) + '">' + esc(t.name || 'Untitled trip') + '</button>') +
+      '<small>' + esc(tripSpan(t).text) + '</small></div>' +
+      '<button class="x small" type="button" data-act="tripdel" data-id="' + esc(t.id) + '" aria-label="Delete ' + esc(t.name || 'this trip') + '" title="Delete">×</button></li>';
+  };
+  var h = head('Trips', (D.others.length + 1) + ((D.others.length + 1) === 1 ? ' trip' : ' trips')) + '<ul class="trips">' + li(D.itin, true) + list.map(function (t) { return li(t, false); }).join('') + '</ul>' +
+    '<div class="row two"><button class="btn primary" type="button" data-act="tripnew">New trip</button><button class="btn" type="button" data-act="tripdup">Duplicate this trip</button></div>' +
+    '<p class="note">Tap a trip to open it. Planned caches and lab stops are shared by all trips. A duplicate keeps the days, stops and bookings, without expenses or found marks.</p>';
+  sheet._point = null; openSheet(h);
 }
 function saveItin() {
   clearTimeout(itinTimer);
@@ -2684,7 +2783,8 @@ function backupCounts(b) {
 }
 function backupText(withKey) {
   var I = JSON.parse(JSON.stringify(D.itin)); (I.days || []).forEach(function (d) { delete d._rt; });
-  var b = { geocations: 'backup', version: 2, saved: new Date().toISOString(), itinerary: I, edits: edits, visits: visits, caches: D.caches, labs: D.labs,
+  I.curDay = curDay;
+  var b = { geocations: 'backup', version: 3, saved: new Date().toISOString(), itinerary: I, otherTrips: D.others.map(cleanTrip), edits: edits, visits: visits, caches: D.caches, labs: D.labs,
     settings: { show: show, mode: mode, basemap: store.get('basemap', null), itinView: itinView, navApp: navApp() } };
   if (withKey && orsKey()) b.settings.orsKey = orsKey();
   return JSON.stringify(b);
@@ -2698,8 +2798,8 @@ function ago(iso) {
 function showBackup() {
   var n = backupCounts({ itinerary: D.itin, edits: edits, visits: visits }), last = store.get('lastBackup', null);
   var h = head('This phone', 'Back up or restore') +
-    '<p class="note">A backup is one file with everything you have entered on this phone: the itinerary, bookings, expenses, planned caches and lab stops, county changes, visits and settings. Save it to your shared folder. The history layers and counties are not in it; they come from your trip data file.</p>' +
-    '<div class="bkup"><dl>' + row('Itinerary', pl(n.days, 'day') + ', ' + pl(n.stops, 'stop')) +
+    '<p class="note">A backup is one file with everything you have entered on this phone: all your trips with their bookings and expenses, planned caches and lab stops, county changes, visits and settings. Save it to your shared folder. The history layers and counties are not in it; they come from your trip data file.</p>' +
+    '<div class="bkup"><dl>' + row('Open trip', (D.itin.name ? D.itin.name + ' · ' : '') + pl(n.days, 'day') + ', ' + pl(n.stops, 'stop')) + (D.others.length ? row('Other trips', D.others.length) : '') +
     row('Bookings and expenses', pl(n.books, 'booking') + ', ' + pl(n.exps, 'expense')) + row('Planned caches and lab stops', D.caches.length.toLocaleString() + ' caches, ' + D.labs.length.toLocaleString() + ' lab stops') + row('County changes', n.edits) + row('Visits', n.visits) + row('Last backup', ago(last)) + '</dl></div>' +
     '<div class="form" style="margin-top:12px"><label class="check"><input id="bkKey" type="checkbox"' + (orsKey() ? '' : ' disabled') + '> Include my OpenRouteService key</label></div>' +
     '<p class="note">Include the key when the backup is for setting up another phone. Leave it out for a file you share with others.</p>' +
@@ -2721,8 +2821,8 @@ function showRestore(b) {
   var n = backupCounts(b), here = backupCounts({ itinerary: D.itin, edits: edits, visits: visits }), S = b.settings || {};
   var chk = function (id, on, label, sub) { return '<label class="check"><input id="' + id + '" type="checkbox"' + (on ? ' checked' : '') + '> <span>' + label + (sub ? '<br><small style="color:var(--muted)">' + sub + '</small>' : '') + '</span></label>'; };
   var h = head('Restore a backup', 'Saved ' + ago(b.saved)) + '<div class="form">' +
-    chk('rsItin', n.days || n.books || n.exps, 'Itinerary · ' + pl(n.days, 'day') + ', ' + pl(n.books, 'booking') + ', ' + pl(n.exps, 'expense'),
-      (here.stops ? 'Replaces the ' + pl(here.days, 'day') + ' plan on this phone. ' : 'This phone has no plan yet. ') + 'Bookings and expenses on this phone that are not in the backup are kept.') +
+    chk('rsItin', n.days || n.books || n.exps || (b.otherTrips || []).length, 'Trips · ' + ((b.itinerary && b.itinerary.name) ? b.itinerary.name + ', ' : '') + pl(n.days, 'day') + ', ' + pl(n.books, 'booking') + ', ' + pl(n.exps, 'expense') + ((b.otherTrips || []).length ? ' + ' + (b.otherTrips || []).length + ' other ' + ((b.otherTrips || []).length === 1 ? 'trip' : 'trips') : ''),
+      'The backup’s open trip opens here. Trips in the backup replace the same trips on this phone; other trips on this phone are kept.') +
     chk('rsEdits', n.edits, 'County changes · ' + n.edits, 'Added to this phone. Where both have the same county, the newer change wins.') +
     chk('rsVisits', n.visits, 'Visits · ' + n.visits, 'Added to this phone; visits already here are kept.') +
     (b.caches || b.labs ? chk('rsPlan', (b.caches || []).length || (b.labs || []).length, 'Planned caches and lab stops \u00b7 ' + (b.caches || []).length.toLocaleString() + ' caches, ' + (b.labs || []).length.toLocaleString() + ' lab stops', 'Replaces the ' + D.caches.length.toLocaleString() + ' caches and ' + D.labs.length.toLocaleString() + ' lab stops on this phone.') : '') +
@@ -2735,8 +2835,13 @@ function applyRestore() {
   var on = function (id) { var e = $(id); return e && e.checked; }, did = [], put = {};
   if (on('rsItin') && b.itinerary) {
     var I = b.itinerary, keep = function (mine, theirs) { var ids = {}; (theirs || []).forEach(function (x) { ids[String(x.id)] = 1; }); return (theirs || []).concat((mine || []).filter(function (x) { return !ids[String(x.id)]; })); };
-    I.bookings = keep(D.itin.bookings, I.bookings); I.expenses = keep(D.itin.expenses, I.expenses);
-    put.itinerary = I; did.push('the itinerary');
+    if (!I.id) I.id = newTripId();
+    if (I.id === D.itin.id) { I.bookings = keep(D.itin.bookings, I.bookings); I.expenses = keep(D.itin.expenses, I.expenses); }
+    var mine = D.others.slice(); if (I.id !== D.itin.id && tripHasContent(D.itin)) { D.itin.curDay = curDay; mine.push(cleanTrip(D.itin)); }
+    var theirs = (b.otherTrips || []).filter(function (t) { return t && t.days; }), tid = {};
+    theirs.forEach(function (t) { if (!t.id) t.id = newTripId(); tid[t.id] = 1; });
+    put.otherTrips = mine.filter(function (t) { return !tid[t.id] && t.id !== I.id; }).concat(theirs.filter(function (t) { return t.id !== I.id; }));
+    put.itinerary = I; did.push(theirs.length ? (theirs.length + 1) + ' trips' : 'the itinerary');
   }
   if (on('rsEdits') && b.edits) {
     var ne = 0; Object.keys(b.edits).forEach(function (id) { var t = b.edits[id], m = edits[id]; if (!m || (t.t || '') > (m.t || '')) { edits[id] = t; ne++; } });
@@ -2857,7 +2962,7 @@ function legNote(leg) {
 
 /* ---------- itinerary on the map ---------- */
 function drawItin() {
-  store.set('curDay', curDay);
+  store.set('curDay', curDay); D.itin.curDay = curDay;
   var g = groups.itin; if (!g) return; g.clearLayers();
   (D.itin.days || []).forEach(function (d, i) {
     if (!d.route || !d.route.line || d.route.line.length < 2) return;
@@ -2964,6 +3069,7 @@ function renderItin() {
   renderHeld = false;
   var I = D.itin, day = I.days[curDay], h = '';
   h += '<div class="itin-head"><input id="itinName" class="itin-name" type="text" placeholder="Trip name" value="' + esc(I.name || '') + '" aria-label="Trip name">' +
+       '<button class="btn tripsbtn" type="button" data-it="trips" aria-label="Trips (' + (D.others.length + 1) + ')">Trips' + (D.others.length ? '<span class="tcount">' + (D.others.length + 1) + '</span>' : '') + '</button>' +
        '<button class="x" type="button" data-it="close" aria-label="Close itinerary">×</button></div>';
   h += viewTabs();
   if (itinView === 'book' || itinView === 'cost') { el.innerHTML = h + (itinView === 'book' ? renderBookings() : renderCosts()); return; }
@@ -3274,6 +3380,7 @@ function wireItin() {
     if (a === 'close') closeItin();
     else if (a === 'day' || a === 'dgo') goDay(+b.getAttribute('data-i'));
     else if (a === 'addday') { addDay(); curDay = D.itin.days.length - 1; drawItin(); renderItin(); toast('Added ' + dayLabel(D.itin.days[curDay], curDay)); }
+    else if (a === 'trips') showTrips();
     else if (a === 'edit') editStop(+b.getAttribute('data-i'));
     else if (a === 'selstart') { itinSel = {}; closeSheet(); renderItin(); }
     else if (a === 'selcancel') { itinSel = null; renderItin(); }
@@ -3468,8 +3575,11 @@ function start2(data) {
   D = { brews: data.brews || [], counties: data.counties || [], caches: data.caches || [], labs: data.labs || [], pois: data.pois || [], route: data.route || [], built: data.built || '', hist: {} };
   HKEYS.forEach(function (k) { D.hist[k] = data[k] || []; });
   D.itin = data.itinerary && data.itinerary.days ? data.itinerary : { name: '', days: [] };
+  if (!D.itin.id) D.itin.id = newTripId();
+  D.others = (Array.isArray(data.otherTrips) ? data.otherTrips : []).filter(function (t) { return t && t.days; });
+  D.others.forEach(function (t) { if (!t.id) t.id = newTripId(); });
   fixCacheStops(D.itin);
-  curDay = Math.min(store.get('curDay', 0), Math.max(0, D.itin.days.length - 1));
+  curDay = Math.min(D.itin.curDay != null ? D.itin.curDay : store.get('curDay', 0), Math.max(0, D.itin.days.length - 1));
   var st = data.status || null;
   D.counties.forEach(function (c) { prepCounty(c); if (st && st[c.id] != null) c.g = +st[c.id]; });
   for (var k in edits) { var c = byId(k); if (c && edits[k].g === c.g) delete edits[k]; }
