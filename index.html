@@ -712,6 +712,23 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
 .fabs { position: absolute; top: 12px; right: 16px; z-index: 500; display: flex; flex-direction: column; gap: 10px; }
 .fab { width: 46px; height: 46px; border-radius: 12px; border: 0; background: var(--panel); box-shadow: var(--shadow); display: grid; place-items: center; position: relative; }
+.coord { position: absolute; right: 10px; bottom: 26px; z-index: 520; border: 0; border-radius: 8px; padding: 5px 9px; background: var(--panel); box-shadow: var(--shadow); color: var(--fg); font: 600 12.5px/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; cursor: pointer; white-space: nowrap; }
+.coord small { font: 600 10px var(--ui); color: var(--muted); margin-left: 6px; letter-spacing: .04em; }
+@media (hover: none), (pointer: coarse) { .coord { display: none !important; } }
+@media (min-width: 720px) and (hover: hover) { .selbar.toolbar { bottom: 62px; } }
+.toolbar .tline { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
+.toolbar .tbig { font-size: 20px; font-weight: 800; }
+.toolbar .tsub { color: var(--muted); font-size: 13px; }
+.toolbar .trow { display: flex; gap: 6px; margin-top: 10px; align-items: center; }
+.toolbar .trow .btn { min-height: 40px; padding: 0 12px; }
+.toolbar .trow input { width: 90px; min-height: 40px; box-sizing: border-box; border: 1px solid var(--line); border-radius: 10px; padding: 0 10px; font: inherit; background: var(--panel-2); color: var(--fg); }
+.coordlist { margin: 10px 0; }
+.coordlist div { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+.coordlist code { flex: 1; font: 600 15px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow-wrap: anywhere; }
+.coordlist small { width: 38px; color: var(--muted); font-weight: 700; font-size: 11px; }
+.coordlist .btn { min-height: 34px; padding: 0 10px; font-size: 13px; }
+.mlabel { background: var(--fg); color: var(--panel); font: 700 12px var(--ui); padding: 2px 6px; border-radius: 6px; white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,.3); }
+.leaflet-container.tooling { cursor: crosshair; }
 .fab svg { width: 22px; height: 22px; stroke: var(--fg); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .fab[aria-pressed="true"] { background: var(--accent); }
 .fab[aria-pressed="true"] svg { stroke: var(--accent-fg); }
@@ -1022,6 +1039,9 @@ textarea { width: 100%; min-height: 120px; margin-top: 12px; font: 12px/1.4 var(
     <button class="fab" id="btnLayers" type="button" aria-label="Layers" title="Layers">
       <svg viewBox="0 0 24 24"><path d="M12 3 3 8l9 5 9-5-9-5Z"/><path d="m3 13 9 5 9-5"/></svg>
     </button>
+    <button class="fab" id="btnTools" type="button" aria-label="Map tools: coordinates, measure, circle" title="Map tools">
+      <svg viewBox="0 0 24 24"><path d="M4 16.5 16.5 4l3.5 3.5L7.5 20z"/><path d="m8 12.5 1.8 1.8M10.5 10l2.6 2.6M13 7.5l1.8 1.8"/></svg>
+    </button>
     <button class="fab" id="btnExport" type="button" aria-label="County changes" title="County changes">
       <svg viewBox="0 0 24 24"><path d="M12 4v11"/><path d="m7 9 5-5 5 5"/><path d="M5 15v4h14v-4"/></svg>
       <span class="badge" id="badge" hidden>0</span>
@@ -1031,6 +1051,8 @@ textarea { width: 100%; min-height: 120px; margin-top: 12px; font: 12px/1.4 var(
     </button>
   </div>
 
+  <button class="coord" id="coord" type="button" hidden title="Coordinates under the pointer. Click to change the format." aria-live="off"></button>
+  <div class="selbar toolbar" id="toolbar" hidden role="region" aria-label="Map tool"></div>
   <section class="itin" id="itin" hidden aria-label="Itinerary"></section>
   <section class="sheet" id="sheet" aria-live="polite"></section>
   <input type="file" id="filePick" hidden aria-label="Data file">
@@ -1340,7 +1362,7 @@ function buildMap() {
   map.on('moveend', function () { var c = map.getCenter(); store.set('view', { lat: c.lat, lng: c.lng, z: map.getZoom() }); drawLabels(); });
   map.on('zoomend', sizeDots);
   map.on('click', onTap);
-  map.on('contextmenu', function (ev) { addPlaceForm(ev.latlng); });
+  coordReadout(); longPress(); toolsWire();
   drawVisits(); drawItin();
   sizeDots(); drawLabels();
 }
@@ -1399,7 +1421,7 @@ function markStop(p, on) {
 function addPlaceForm(ll, name, type) {
   sheet._ll = ll;
   var dl = D.itin.days.length ? dayLabel(D.itin.days[curDay], curDay) : 'Day 1';
-  var h = head('Pin at ' + ll.lat.toFixed(4) + ', ' + ll.lng.toFixed(4), 'Add a place') + '<label class="kicker" for="vName" style="display:block;margin-top:14px">Name</label>' +
+  var h = head(fmtCoord(ll.lat, ll.lng), 'Add a place') + '<label class="kicker" for="vName" style="display:block;margin-top:14px">Name</label>' +
     '<input id="vName" type="text" autocomplete="off" style="width:100%;box-sizing:border-box;min-height:44px;font:inherit;font-size:16px;border:2px solid var(--line);border-radius:10px;padding:0 10px;background:var(--panel);color:var(--fg)">' +
     '<div class="kicker" style="margin-top:12px">Type</div><div class="seg" id="vType" style="grid-template-columns:repeat(3,1fr)">';
   var ty = type || 6;
@@ -1442,7 +1464,176 @@ function setBasemap(id) {
 
 /* ---------- tapping ---------- */
 var KIND = { brewtop: 'Want-to-go brewery', brewall: 'Brewery, not visited', pois: 'Point of interest', caches: 'Planned cache', labs: 'Lab cache', hfound: 'Found cache', hbrew: 'Brewery visited', hguster: 'Guster show', hhikes: 'Hike completed', hparks: 'Park or viewpoint', hroutes: 'Trip route', htrails: 'Trail hiked' };
+/* ======== coordinates ======== */
+var CFMT = ['ddm', 'dd', 'dms'], cfmt = store.get('cfmt', 'ddm');
+function pad(n, w) { n = String(n); while (n.length < w) n = '0' + n; return n; }
+function fmtCoord(lat, lon, f) {
+  f = f || cfmt;
+  if (f === 'dd') return lat.toFixed(5) + ', ' + lon.toFixed(5);
+  var part = function (v, pos, neg, w) {
+    var h = v < 0 ? neg : pos, a = Math.abs(v), d = Math.floor(a), m = (a - d) * 60;
+    if (f === 'dms') { var mi = Math.floor(m), sec = (m - mi) * 60; if (sec >= 59.95) { sec = 0; mi++; } if (mi >= 60) { mi = 0; d++; } return h + ' ' + d + '° ' + pad(mi, 2) + '′ ' + sec.toFixed(1) + '″'; }
+    var ms = m.toFixed(3); if (+ms >= 60) { ms = '0.000'; d++; }
+    return h + ' ' + pad(d, w) + '° ' + (+ms < 10 ? '0' : '') + ms;
+  };
+  return part(lat, 'N', 'S', 2) + ' ' + part(lon, 'E', 'W', 3);
+}
+var FMT_NAME = { ddm: 'DDM', dd: 'DD', dms: 'DMS' };
+/* read coordinates typed or pasted in almost any form: N 44° 28.556 W 073° 12.727 · 44.4759, -73.2121 · 44°28'33.4"N 73°12'43.6"W */
+function parseCoord(t) {
+  var u = String(t || '').toUpperCase().replace(/[°º'"′″’”,;]/g, ' ').replace(/([NSEW])/g, ' $1 ').trim();
+  var tok = u.split(/\s+/).filter(Boolean), nums = [], hem = [];
+  for (var i = 0; i < tok.length; i++) {
+    if (/^[NSEW]$/.test(tok[i])) hem.push(tok[i]);
+    else if (/^[-+]?\d+(\.\d+)?$/.test(tok[i])) nums.push(parseFloat(tok[i]));
+    else return null;
+  }
+  if ([2, 4, 6].indexOf(nums.length) < 0) return null;
+  var k = nums.length / 2, val = function (a) { var sgn = a[0] < 0 || Object.is(a[0], -0) ? -1 : 1, v = Math.abs(a[0]); if (a[1] != null) v += a[1] / 60; if (a[2] != null) v += a[2] / 3600; return sgn * v; };
+  var lat = val(nums.slice(0, k)), lon = val(nums.slice(k)), guessed = false;
+  if (k > 1 && (nums[1] >= 60 || nums[k + 1] >= 60 || (k === 3 && (nums[2] >= 60 || nums[5] >= 60)))) return null;
+  var hl = hem.filter(function (h) { return h === 'N' || h === 'S'; })[0], hw = hem.filter(function (h) { return h === 'E' || h === 'W'; })[0];
+  if (hem.length && (!hl || !hw)) return null;                            // one letter given, the other half missing
+  if (hl === 'S') lat = -Math.abs(lat); else if (hl === 'N') lat = Math.abs(lat);
+  if (hw === 'W') lon = -Math.abs(lon); else if (hw === 'E') lon = Math.abs(lon);
+  if (!hem.length && nums[0] >= 0 && nums[k] > 0 && lat > 10) { lon = -lon; guessed = true; }     // no N/S/E/W or minus: North America
+  if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return null;
+  return { lat: lat, lng: lon, guessed: guessed };
+}
+function coordReadout() {
+  var el = $('coord'); if (!el || !map) return;
+  var last = null, show = function () { if (last) el.innerHTML = esc(fmtCoord(last.lat, last.lng)) + '<small>' + FMT_NAME[cfmt] + '</small>'; };
+  map.on('mousemove', function (e) { last = e.latlng; el.hidden = false; show(); });
+  map.getContainer().addEventListener('mouseleave', function (e) { if (e.relatedTarget !== el && !el.contains(e.relatedTarget)) el.hidden = true; });
+  el.addEventListener('mouseleave', function (e) { if (!map.getContainer().contains(e.relatedTarget)) el.hidden = true; });
+  el.addEventListener('click', function () { cfmt = CFMT[(CFMT.indexOf(cfmt) + 1) % 3]; store.set('cfmt', cfmt); show(); });
+}
+/* long press (phone) or right-click (computer): this spot's coordinates */
+var hereMark = null, suppressTapUntil = 0;
+function markHere(ll) {
+  if (!toolLayer) toolInit();
+  if (hereMark) toolLayer.removeLayer(hereMark);
+  hereMark = L.circleMarker(ll, { renderer: toolRend, pane: 'tools', radius: 9, color: '#111', weight: 3, fillColor: HI, fillOpacity: 1, interactive: false });
+  toolLayer.addLayer(hereMark);
+}
+function showSpot(ll, note) {
+  sheet._tapLL = ll; markHere(ll);
+  var c = countyAt(ll.lat, ll.lng), rows = CFMT.map(function (f) { var t = fmtCoord(ll.lat, ll.lng, f); return '<div><small>' + FMT_NAME[f] + '</small><code>' + esc(t) + '</code><button class="btn" type="button" data-act="copyc" data-t="' + esc(t) + '">Copy</button></div>'; }).join('');
+  openSheet(head(c ? fullName(c) : 'This spot', 'Coordinates') + (note ? '<p class="note">' + esc(note) + '</p>' : '') + '<div class="coordlist">' + rows + '</div>' +
+    '<div class="row two"><button class="btn primary" type="button" data-act="pinhere">Add a place here</button><button class="btn" type="button" data-act="mfrom">Measure from here</button></div>' +
+    '<div class="row two"><button class="btn" type="button" data-act="cfrom">Circle around here</button>' + navLink({ name: 'This spot', x: ll.lng, y: ll.lat }, 'drive') + '</div>');
+  sheet._spot = true;
+}
+function longPress() {
+  var el = map.getContainer(), t = null, start = null;
+  el.addEventListener('touchstart', function (e) {
+    if (e.touches.length !== 1) { clearTimeout(t); return; }
+    var p = e.touches[0]; start = [p.clientX, p.clientY]; clearTimeout(t);
+    t = setTimeout(function () {
+      var r = el.getBoundingClientRect(), ll = map.containerPointToLatLng([start[0] - r.left, start[1] - r.top]);
+      suppressTapUntil = Date.now() + 700; if (navigator.vibrate) try { navigator.vibrate(15); } catch (x) {}
+      if (tool) toolTap(ll); else showSpot(ll);
+    }, 550);
+  }, { passive: true });
+  el.addEventListener('touchmove', function (e) { if (!start) return; var p = e.touches[0]; if (Math.abs(p.clientX - start[0]) + Math.abs(p.clientY - start[1]) > 12) clearTimeout(t); }, { passive: true });
+  el.addEventListener('touchend', function () { clearTimeout(t); start = null; }, { passive: true });
+  el.addEventListener('touchcancel', function () { clearTimeout(t); start = null; }, { passive: true });
+  map.on('contextmenu', function (e) {
+    if (e.originalEvent) L.DomEvent.preventDefault(e.originalEvent);
+    if ((e.originalEvent && e.originalEvent.pointerType === 'touch') || Date.now() < suppressTapUntil) return;   // a long press already handled it
+    suppressTapUntil = Date.now() + 300; if (tool) toolTap(e.latlng); else showSpot(e.latlng);
+  });
+}
+/* ======== measure and circle ======== */
+var toolLayer = null, toolRend = null, tool = null;     // tool: { kind: 'measure', pts: [] } or { kind: 'circle', c: latlng, r: meters }
+function toolInit() {
+  if (toolLayer) return;
+  map.createPane('tools').style.zIndex = 640; map.getPane('tools').style.pointerEvents = 'none';
+  toolRend = L.svg({ pane: 'tools', padding: 0.5 }); toolLayer = L.layerGroup().addTo(map);
+}
+function gdist(a, b) { var R = 6371008.8, r = Math.PI / 180, dl = (b.lat - a.lat) * r, dn = (b.lng - a.lng) * r, x = Math.sin(dl / 2) * Math.sin(dl / 2) + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.sin(dn / 2) * Math.sin(dn / 2); return 2 * R * Math.asin(Math.min(1, Math.sqrt(x))); }
+function fmtDist(m) { var mi = m / 1609.344; return (mi < 0.1 ? Math.round(m * 3.28084).toLocaleString() + ' ft' : mi < 10 ? mi.toFixed(2) + ' mi' : mi < 100 ? mi.toFixed(1) + ' mi' : Math.round(mi).toLocaleString() + ' mi'); }
+function fmtKm(m) { return m < 1000 ? Math.round(m) + ' m' : (m / 1000).toFixed(m < 10000 ? 2 : 1) + ' km'; }
+function startTool(kind, from) {
+  toolInit(); closeSheet(); if (hereMark) { toolLayer.removeLayer(hereMark); hereMark = null; }
+  if (selMode) endSelect();
+  if (!$('itin').hidden && window.innerWidth < 720) closeItin();
+  tool = kind === 'measure' ? { kind: kind, pts: from ? [from] : [] } : { kind: kind, c: from || null, r: 0 };
+  map.getContainer().classList.add('tooling'); $('toolbar').hidden = false; drawTool();
+}
+function endTool() { tool = null; if (toolLayer) toolLayer.clearLayers(); hereMark = null; map.getContainer().classList.remove('tooling'); $('toolbar').hidden = true; }
+function toolTap(ll) {
+  if (!tool) return;
+  if (tool.kind === 'measure') tool.pts.push(ll);
+  else if (!tool.c) tool.c = ll; else tool.r = gdist(tool.c, ll);
+  drawTool();
+}
+function drawTool(hover) {
+  if (!tool) return;
+  toolLayer.clearLayers();
+  var bar = $('toolbar'), h = '', st = { renderer: toolRend, pane: 'tools', interactive: false };
+  var dot = function (ll) { toolLayer.addLayer(L.circleMarker(ll, L.extend({ radius: 5, color: '#111', weight: 2, fillColor: '#fff', fillOpacity: 1 }, st))); };
+  var label = function (ll, t) { toolLayer.addLayer(L.marker(ll, { pane: 'tools', interactive: false, keyboard: false, icon: L.divIcon({ className: '', iconSize: null, iconAnchor: [-8, 10], html: '<span class="mlabel">' + esc(t) + '</span>' }) })); };
+  if (tool.kind === 'measure') {
+    var P2 = tool.pts, tot = 0, legs = [];
+    for (var i = 1; i < P2.length; i++) { var d = gdist(P2[i - 1], P2[i]); legs.push(d); tot += d; }
+    if (P2.length > 1) { toolLayer.addLayer(L.polyline(P2, L.extend({ color: '#fff', weight: 7, opacity: 0.9 }, st))); toolLayer.addLayer(L.polyline(P2, L.extend({ color: '#111', weight: 3, dashArray: '8 6' }, st))); }
+    if (hover && P2.length) { toolLayer.addLayer(L.polyline([P2[P2.length - 1], hover], L.extend({ color: '#111', weight: 2, opacity: 0.6, dashArray: '4 6' }, st))); }
+    P2.forEach(dot);
+    if (P2.length > 1) label(P2[P2.length - 1], fmtDist(tot));
+    var hv = hover && P2.length ? gdist(P2[P2.length - 1], hover) : 0;
+    h = '<div class="tline"><span class="tbig">' + (P2.length > 1 ? fmtDist(tot) : P2.length ? 'Tap the next point' : 'Tap a starting point') + '</span>' +
+      (P2.length > 1 ? '<span class="tsub">' + fmtKm(tot) + ' · ' + legs.length + (legs.length === 1 ? ' leg' : ' legs') + ' · last ' + fmtDist(legs[legs.length - 1]) + '</span>' : '') +
+      (hv ? '<span class="tsub">to pointer +' + fmtDist(hv) + '</span>' : '') + '</div>' +
+      '<div class="tsub" style="margin-top:2px">Straight-line distance. Tap the map to add points.</div>' +
+      '<div class="trow"><button class="btn" type="button" data-tool="undo"' + (P2.length ? '' : ' disabled') + '>Undo point</button><button class="btn" type="button" data-tool="clear"' + (P2.length ? '' : ' disabled') + '>Clear</button><span style="flex:1"></span><button class="btn primary" type="button" data-tool="done">Done</button></div>';
+  } else {
+    var c = tool.c, r = tool.r;
+    if (c && hover && !r) r = gdist(c, hover);
+    if (c) { dot(c); if (r) { toolLayer.addLayer(L.circle(c, L.extend({ radius: r, color: '#111', weight: 2.5, dashArray: '8 6', fillColor: HI, fillOpacity: 0.12 }, st))); var edge = L.latLng(c.lat, c.lng + (r / (111320 * Math.cos(c.lat * Math.PI / 180)))); toolLayer.addLayer(L.polyline([c, edge], L.extend({ color: '#111', weight: 2 }, st))); label(edge, fmtDist(r)); } }
+    h = '<div class="tline"><span class="tbig">' + (!c ? 'Tap the center' : r ? 'Radius ' + fmtDist(r) : 'Tap the edge, or type a radius') + '</span>' + (r ? '<span class="tsub">' + fmtKm(r) + ' · across ' + fmtDist(2 * r) + '</span>' : '') + '</div>' +
+      (c ? '<div class="tsub" style="margin-top:2px">Center ' + esc(fmtCoord(c.lat, c.lng)) + '</div>' : '') +
+      '<div class="trow"><input id="toolR" type="number" inputmode="decimal" min="0" step="0.1" placeholder="miles" aria-label="Radius in miles"' + (tool.r ? ' value="' + (tool.r / 1609.344).toFixed(2) + '"' : '') + (c ? '' : ' disabled') + '><button class="btn" type="button" data-tool="setr"' + (c ? '' : ' disabled') + '>Set</button>' +
+      '<button class="btn" type="button" data-tool="newc"' + (c ? '' : ' disabled') + '>New center</button><span style="flex:1"></span><button class="btn primary" type="button" data-tool="done">Done</button></div>';
+  }
+  if (!hover || !bar.innerHTML) bar.innerHTML = h;
+  else { var tl = bar.querySelector('.tline'), tmp = document.createElement('div'); tmp.innerHTML = h; tl.replaceWith(tmp.querySelector('.tline')); }
+}
+function toolsWire() {
+  $('toolbar').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-tool]'); if (!b || !tool) return;
+    var a = b.getAttribute('data-tool');
+    if (a === 'done') endTool();
+    else if (a === 'undo') { tool.pts.pop(); drawTool(); }
+    else if (a === 'clear') { tool.pts = []; drawTool(); }
+    else if (a === 'newc') { tool.c = null; tool.r = 0; drawTool(); }
+    else if (a === 'setr') { var v = parseFloat($('toolR').value); if (v > 0 && tool.c) { tool.r = v * 1609.344; drawTool(); map.fitBounds(L.circle(tool.c, { radius: tool.r }).addTo(toolLayer).getBounds(), { padding: [40, 40] }); drawTool(); } }
+  });
+  $('toolbar').addEventListener('keydown', function (ev) { if (ev.key === 'Enter' && ev.target.id === 'toolR') { ev.preventDefault(); $('toolbar').querySelector('[data-tool=setr]').click(); } });
+  map.on('mousemove', function (e) { if (tool && ((tool.kind === 'measure' && tool.pts.length) || (tool.kind === 'circle' && tool.c && !tool.r))) drawTool(e.latlng); });
+  document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && tool) endTool(); });
+  $('btnTools').addEventListener('click', showTools);
+}
+function showTools() {
+  openSheet(head('Map tools', 'Coordinates and measuring') +
+    '<label class="kicker" for="gotoC" style="display:block;margin-top:12px">Go to coordinates</label>' +
+    '<div class="search" style="margin-top:6px"><input id="gotoC" type="text" autocomplete="off" spellcheck="false" placeholder="N 44° 28.556 W 073° 12.727"><button class="btn" type="button" data-act="gotoc">Go</button></div>' +
+    '<p class="note">Paste from a cache page or type it. Degrees and minutes, decimal degrees, or degrees-minutes-seconds all work.</p>' +
+    '<div class="row two" style="margin-top:12px"><button class="btn" type="button" data-act="toolm">Measure distance</button><button class="btn" type="button" data-act="toolc">Draw a circle</button></div>' +
+    '<label class="kicker" style="display:block;margin-top:14px">Coordinate format</label><div class="seg" role="group" style="margin-top:6px">' +
+    CFMT.map(function (f) { return '<button type="button" class="segbtn" data-act="cfmt" data-f="' + f + '" aria-pressed="' + (f === cfmt) + '">' + FMT_NAME[f] + '</button>'; }).join('') + '</div>' +
+    '<p class="note">' + esc(fmtCoord(map.getCenter().lat, map.getCenter().lng)) + ' is the map’s center. On a phone, press and hold anywhere on the map for that spot’s coordinates; on a computer, right-click' + (matchMedia('(hover: hover)').matches ? ', or read them in the lower right as you move the mouse' : '') + '.</p>');
+  setTimeout(function () { var g = $('gotoC'); if (g && window.innerWidth >= 720) g.focus(); }, 60);
+}
+function goToCoord() {
+  var v = $('gotoC') && $('gotoC').value, c = parseCoord(v);
+  if (!c) { toast('Those coordinates could not be read. Try N 44 28.556 W 73 12.727 or 44.4759, -73.2121.'); return; }
+  var ll = L.latLng(c.lat, c.lng); map.setView(ll, Math.max(map.getZoom(), 15));
+  showSpot(ll, c.guessed ? 'No N/S/E/W was given, so this assumes north and west.' : '');
+}
 function onTap(ev) {
+  if (Date.now() < suppressTapUntil) return;
+  if (tool) { toolTap(ev.latlng); return; }
   if (selMode) { var sc = countyAt(ev.latlng.lat, ev.latlng.lng); if (sc) { if (sel[sc.id]) delete sel[sc.id]; else sel[sc.id] = 1; drawSel(); } return; }
   sheet._tapLL = ev.latlng;
   var hits = [], cp = ev.containerPoint, R2 = 22 * 22;
@@ -1487,7 +1678,7 @@ function chooseHit(hits) {
 /* ---------- sheet ---------- */
 var sheet = null;
 function openSheet(html) { clearHi(); sheet._export = false; sheet.innerHTML = html; sheet.classList.add('open'); sheet.scrollTop = 0; }
-function closeSheet() { sheet.classList.remove('open'); clearHi(); }
+function closeSheet() { sheet.classList.remove('open'); clearHi(); if (hereMark && toolLayer && !tool) { toolLayer.removeLayer(hereMark); hereMark = null; } }
 /* ---- yellow highlight of what the open window is about (drawn just under the map's points and lines) ---- */
 var hiLayer = null, hiRend = null, HI = '#ffd400';
 function clearHi() { if (hiLayer) hiLayer.clearLayers(); }
@@ -1537,7 +1728,7 @@ function editNote(c) {
 function showCounty(c) {
   openSheet(head(c.c === 'CA' ? 'Canada census division' : 'US county', fullName(c)) + segHtml(c) + editNote(c) +
     '<div class="row tight"><button class="btn" type="button" data-act="selstart" data-id="' + esc(c.id) + '">Select several counties</button></div>' +
-    (sheet._tapLL ? '<div class="row"><button class="btn" type="button" data-act="pinhere">Add a place at this spot</button></div>' : ''));
+    (sheet._tapLL ? '<p class="note spotc"><button class="link small" type="button" data-act="spot">' + esc(fmtCoord(sheet._tapLL.lat, sheet._tapLL.lng)) + '</button> \u00b7 tapped spot</p><div class="row"><button class="btn" type="button" data-act="pinhere">Add a place at this spot</button></div>' : ''));
   hiCounty(c);
 }
 function row(k, v) { return (v == null || v === '') ? '' : '<dt>' + esc(k) + '</dt><dd>' + esc(v) + '</dd>'; }
@@ -1929,6 +2120,7 @@ function wire() {
     if (ls[2]) ls[2].firstChild.nodeValue = T.from + ' '; if (ls[3]) ls[3].firstChild.nodeValue = T.to + ' ';
   });
   sheet.addEventListener('keydown', function (ev) {
+    if (ev.key === 'Enter' && ev.target.id === 'gotoC') { ev.preventDefault(); goToCoord(); return; }
     if (ev.key === 'Enter' && ev.target.id === 'findQ') { ev.preventDefault(); if (sheet._found && sheet._found.length) pickFound(sheet._found[0]); }
   });
   sheet.addEventListener('click', function (ev) {
@@ -1976,6 +2168,14 @@ function wire() {
       addToItin(sheet._src || 'pin', pp, act === 'pinstart' ? 'start' : act === 'pinend' ? 'end' : 'stop'); sheet._src = null; sheet._addr = null; closeSheet();
     }
     else if (act === 'pinhere' && sheet._tapLL) addPlaceForm(sheet._tapLL);
+    else if (act === 'spot' && sheet._tapLL) showSpot(sheet._tapLL);
+    else if (act === 'copyc') copyText(b.getAttribute('data-t'), 'Copied ' + b.getAttribute('data-t'));
+    else if (act === 'mfrom' && sheet._tapLL) startTool('measure', sheet._tapLL);
+    else if (act === 'cfrom' && sheet._tapLL) startTool('circle', sheet._tapLL);
+    else if (act === 'toolm') startTool('measure');
+    else if (act === 'toolc') startTool('circle');
+    else if (act === 'gotoc') goToCoord();
+    else if (act === 'cfmt') { cfmt = b.getAttribute('data-f'); store.set('cfmt', cfmt); showTools(); }
     else if (act === 'addvisit' && sheet._ll) {
       var nm = ($('vName').value || '').trim(); if (!nm) { toast('Give the place a name'); $('vName').focus(); return; }
       var tb = sheet.querySelector('[data-act=vtype][aria-pressed=true]');
